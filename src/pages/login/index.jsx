@@ -83,7 +83,7 @@ const LoginPage = () => {
               rules={[{ required: true, message: "Phone is required" }]}
             >
               <Input
-                placeholder="Enter your email"
+                placeholder="Enter your phone number"
                 prefix={<MailOutlined />}
                 allowClear
               />
