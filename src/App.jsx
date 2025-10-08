@@ -1,44 +1,61 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom"
-import Dashboard from "./components/dashboard"
-import ManageStation from "./pages/station"
-import ManageCategory from "./pages/category"
-import Login from "./pages/login"
-import Register from "./pages/register"
-import Home from "./pages/home"
+// jsx
+// phối hợp JS & HTML 1 cách dễ dàng
+
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import Dashboard from "./components/dashboard";
+import ManageBike from "./pages/bike";
+import ManageCategory from "./pages/category";
 import { ToastContainer } from "react-toastify";
+import LoginPage from "./pages/login";
+import RegisterPage from "./pages/register";
+import EbikeHomePage from "./pages/home";
+import ProtectedRoute from "./components/protected-route";
+import ManageVoucher from "./pages/voucher";
+import ManageStore from "./pages/store";
+
+// 1. Component
+// là 1 cái function
+// trả về 1 cái giao diện
 
 function App() {
-
   const router = createBrowserRouter([
     {
-      path: "/login",
-      element: <Login />
-    },
-    {
-      path: "/register",
-      element: <Register />
-    },
-    {
-      path: "/",
-      element: <Dashboard />,
+      path: "/dashboard",
+      element: (
+        <ProtectedRoute role={"ADMIN"}>
+          <Dashboard />
+        </ProtectedRoute>
+      ),
       children: [
         {
-          path: "",
-          element: <Home />
-        },
-        {
-          path: "home",
-          element: <Home />
-        },
-        {
-          path: "station",
-          element: <ManageStation />
+          path: "bike",
+          element: <ManageBike />, // Outlet
         },
         {
           path: "category",
-          element: <ManageCategory />
+          element: <ManageCategory />, // Outlet
+        },
+        {
+          path: "voucher",
+          element: <ManageVoucher />, // Outlet
+        },
+        {
+          path: "store",
+          element: <ManageStore />, // Outlet
         },
       ],
+    },
+    {
+      path: "/",
+      element: <EbikeHomePage />,
+    },
+    {
+      path: "/login",
+      element: <LoginPage />,
+    },
+    {
+      path: "/register",
+      element: <RegisterPage />,
     },
   ]);
 
@@ -50,4 +67,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
