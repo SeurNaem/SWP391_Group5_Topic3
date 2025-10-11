@@ -28,6 +28,7 @@ const items = [
   getItem("Manage Category", "category", <PieChartOutlined />),
   getItem("Manage Voucher", "voucher", <PieChartOutlined />),
   getItem("Manage Store", "store", <PieChartOutlined />),
+  getItem("Manage Service", "service", <PieChartOutlined />),
 ];
 
 const Dashboard = () => {

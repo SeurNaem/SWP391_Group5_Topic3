@@ -12,6 +12,7 @@ import EbikeHomePage from "./pages/home";
 import ProtectedRoute from "./components/protected-route";
 import ManageVoucher from "./pages/voucher";
 import ManageStore from "./pages/store";
+import ServicePage from "./pages/service";
 
 // 1. Component
 // là 1 cái function
@@ -42,6 +43,10 @@ function App() {
         {
           path: "store",
           element: <ManageStore />, // Outlet
+        },
+        {
+          path: "service",
+          element: <ServicePage />, // Outlet
         },
       ],
     },
