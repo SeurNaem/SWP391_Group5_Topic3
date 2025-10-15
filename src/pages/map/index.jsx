@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Row, Col, Input, Button, Select, Spin, message, Space, Typography } from 'antd';
-import { SearchOutlined, EnvironmentOutlined, ReloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import MapComponent from '../../components/map';
 
 const { Title, Text } = Typography;
@@ -157,13 +158,23 @@ const MapPage = () => {
                                     Find and navigate to the nearest electric vehicle charging stations
                                 </Text>
                             </div>
-                            <Button
-                                icon={<ReloadOutlined />}
-                                onClick={refreshStations}
-                                loading={loading}
-                            >
-                                Refresh
-                            </Button>
+                            <Space>
+                                <Link to="/">
+                                    <Button
+                                        icon={<HomeOutlined />}
+                                        type="default"
+                                    >
+                                        Back to Home
+                                    </Button>
+                                </Link>
+                                <Button
+                                    icon={<ReloadOutlined />}
+                                    onClick={refreshStations}
+                                    loading={loading}
+                                >
+                                    Refresh
+                                </Button>
+                            </Space>
                         </div>
                     </Card>
                 </Col>

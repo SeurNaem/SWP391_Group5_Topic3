@@ -1,69 +1,27 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FiBatteryCharging,
   FiFeather,
   FiMapPin,
-  FiChevronLeft,
-  FiChevronRight,
-  FiTrendingUp,
   FiZap,
   FiUser,
   FiLogOut,
   FiShoppingCart,
 } from "react-icons/fi";
-import { FaStar, FaQuoteLeft } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
 
-// --- Custom Hook for Scroll-triggered Animations ---
-const useAnimateOnScroll = () => {
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const elements = document.querySelectorAll(".reveal");
-    elements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-};
-
 const EbikeHomePage = () => {
-  useAnimateOnScroll();
   const account = useSelector((store) => store.account);
-
-  // --- START: Authentication State ---
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const dispatch = useDispatch();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+
   const user = {
     name: "Alex Reid",
-    avatar:
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=2080", // A sample avatar image
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=2080",
   };
-  const dispatch = useDispatch();
-
-  // Handlers to simulate auth=
-  const handleLogout = () => {
-    // logout
-    // clear state trong redux
-
-    dispatch(logout());
-  };
-  // --- END: Authentication State ---
-
-  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState(0);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => setIsHeaderScrolled(window.scrollY > 50);
@@ -71,166 +29,321 @@ const EbikeHomePage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const products = [
-    {
-      name: "Apex",
-      price: "$2,799",
-      image:
-        "https://images.unsplash.com/photo-1620027734496-2f08b35b6c82?auto=format&fit=crop&q=80&w=2062",
-      description:
-        "The pinnacle of urban commuting technology. Sleek, powerful, and effortlessly stylish.",
-      specs: { range: "70 mi", speed: "28 mph" },
-    },
-    {
-      name: "Vortex",
-      price: "$3,499",
-      image:
-        "https://images.unsplash.com/photo-1627961958410-a9f4e2f5b355?auto=format&fit=crop&q=80&w=2062",
-      description:
-        "Conquer any terrain with this rugged, all-adventure electric mountain bike.",
-      specs: { range: "60 mi", speed: "25 mph" },
-    },
-    {
-      name: "Glide",
-      price: "$1,999",
-      image:
-        "https://images.unsplash.com/photo-1598226463239-7a020f5a728b?auto=format&fit=crop&q=80&w=2062",
-      description:
-        "Lightweight and agile, the Glide is the perfect companion for your city life.",
-      specs: { range: "50 mi", speed: "20 mph" },
-    },
-  ];
-  const testimonials = [
-    {
-      quote:
-        "VOLT completely transformed my commute. The Apex is not just a bike; it's a statement. Smooth, fast, and turns heads everywhere.",
-      author: "Jessica M.",
-      rating: 5,
-    },
-    {
-      quote:
-        "As an avid mountain biker, I was skeptical about e-bikes. The Vortex proved me wrong. It climbs like a beast and is insanely fun.",
-      author: "David L.",
-      rating: 5,
-    },
-    {
-      quote:
-        "The Glide is perfect for my daily errands. It's so light and the battery lasts forever. I can't imagine my life without it now.",
-      author: "Sarah K.",
-      rating: 5,
-    },
-  ];
+  const handleLogout = () => {
+    dispatch(logout());
+  };
 
-  const nextProduct = () =>
-    setCurrentProduct((prev) => (prev + 1) % products.length);
-  const prevProduct = () =>
-    setCurrentProduct((prev) => (prev - 1 + products.length) % products.length);
-  const nextTestimonial = () =>
-    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-  const prevTestimonial = () =>
-    setCurrentTestimonial(
-      (prev) => (prev - 1 + testimonials.length) % testimonials.length
-    );
-
-  const sectionClasses = "py-20 md:py-28 px-6 md:px-12 max-w-7xl mx-auto";
+  const styles = {
+    container: {
+      backgroundColor: '#111827',
+      color: '#ffffff',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      minHeight: '100vh',
+      overflowX: 'hidden'
+    },
+    header: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '1rem 3rem',
+      zIndex: 50,
+      transition: 'all 0.3s ease',
+      backgroundColor: isHeaderScrolled ? 'rgba(17, 24, 39, 0.9)' : 'transparent',
+      backdropFilter: isHeaderScrolled ? 'blur(10px)' : 'none',
+      borderBottom: isHeaderScrolled ? '1px solid #374151' : '1px solid transparent'
+    },
+    logo: {
+      fontSize: '2rem',
+      fontWeight: 'bold',
+      letterSpacing: '0.2em',
+      cursor: 'pointer'
+    },
+    nav: {
+      display: 'flex',
+      gap: '2rem',
+      alignItems: 'center'
+    },
+    navLink: {
+      color: '#ffffff',
+      textDecoration: 'none',
+      transition: 'color 0.3s ease',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    },
+    authSection: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1rem'
+    },
+    userInfo: {
+      position: 'relative',
+      cursor: 'pointer'
+    },
+    userAvatar: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem'
+    },
+    avatar: {
+      width: '2.5rem',
+      height: '2.5rem',
+      borderRadius: '50%',
+      border: '2px solid #10B981',
+      objectFit: 'cover'
+    },
+    dropdown: {
+      position: 'absolute',
+      right: 0,
+      top: '100%',
+      marginTop: '0.5rem',
+      width: '12rem',
+      backgroundColor: '#1F2937',
+      borderRadius: '0.5rem',
+      boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+      border: '1px solid #374151',
+      padding: '0.5rem 0'
+    },
+    dropdownItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      padding: '0.5rem 1rem',
+      fontSize: '0.875rem',
+      color: '#ffffff',
+      textDecoration: 'none',
+      transition: 'background-color 0.3s ease',
+      cursor: 'pointer',
+      border: 'none',
+      background: 'none',
+      width: '100%',
+      textAlign: 'left'
+    },
+    authButton: {
+      fontWeight: '600',
+      padding: '0.5rem 1.25rem',
+      borderRadius: '9999px',
+      textDecoration: 'none',
+      transition: 'all 0.3s ease',
+      border: '2px solid'
+    },
+    loginButton: {
+      backgroundColor: 'transparent',
+      borderColor: '#4B5563',
+      color: '#D1D5DB'
+    },
+    registerButton: {
+      backgroundColor: '#10B981',
+      borderColor: '#10B981',
+      color: '#ffffff'
+    },
+    heroSection: {
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+      paddingTop: '5rem'
+    },
+    heroBackground: {
+      position: 'absolute',
+      inset: 0,
+      backgroundImage: `url('https://images.unsplash.com/photo-1620802051782-725fa33db067?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    },
+    heroOverlay: {
+      position: 'absolute',
+      inset: 0,
+      background: 'linear-gradient(to top, #111827, rgba(17, 24, 39, 0.7), transparent)'
+    },
+    heroContent: {
+      position: 'relative',
+      zIndex: 10,
+      padding: '0 1rem'
+    },
+    heroTitle: {
+      fontSize: 'clamp(3rem, 8vw, 5rem)',
+      fontWeight: 'bold',
+      marginBottom: '1rem'
+    },
+    heroSubtitle: {
+      fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+      color: '#D1D5DB',
+      maxWidth: '48rem',
+      margin: '0 auto 2rem'
+    },
+    heroButtons: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1rem',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    primaryButton: {
+      backgroundColor: '#10B981',
+      color: '#000000',
+      fontWeight: '600',
+      padding: '1rem 2.5rem',
+      borderRadius: '9999px',
+      textDecoration: 'none',
+      transition: 'all 0.3s ease',
+      fontSize: '1.125rem',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      border: 'none',
+      cursor: 'pointer'
+    },
+    secondaryButton: {
+      backgroundColor: 'transparent',
+      border: '2px solid #10B981',
+      color: '#10B981',
+      fontWeight: '600',
+      padding: '1rem 2rem',
+      borderRadius: '9999px',
+      textDecoration: 'none',
+      transition: 'all 0.3s ease',
+      fontSize: '1.125rem',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    },
+    mapButton: {
+      backgroundColor: '#2563EB',
+      color: '#ffffff',
+      fontWeight: '600',
+      padding: '1.25rem 3rem',
+      borderRadius: '9999px',
+      textDecoration: 'none',
+      transition: 'all 0.3s ease',
+      fontSize: '1.25rem',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      boxShadow: '0 8px 16px rgba(37, 99, 235, 0.3)',
+      transform: 'scale(1)',
+      border: 'none'
+    },
+    featuresSection: {
+      padding: '5rem 1.5rem',
+      maxWidth: '80rem',
+      margin: '0 auto'
+    },
+    featuresTitle: {
+      fontSize: '2.5rem',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: '4rem'
+    },
+    featuresGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '2.5rem'
+    },
+    featureCard: {
+      backgroundColor: '#1F2937',
+      padding: '2rem',
+      borderRadius: '1rem',
+      textAlign: 'center',
+      border: '1px solid #374151',
+      transition: 'all 0.3s ease'
+    },
+    featureIcon: {
+      display: 'inline-block',
+      padding: '1rem',
+      backgroundColor: '#111827',
+      borderRadius: '50%',
+      marginBottom: '1.5rem',
+      border: '1px solid #374151'
+    },
+    featureTitle: {
+      fontSize: '1.5rem',
+      fontWeight: '600',
+      marginBottom: '0.75rem'
+    },
+    featureText: {
+      color: '#9CA3AF',
+      lineHeight: '1.6',
+      marginBottom: '1rem'
+    },
+    footer: {
+      backgroundColor: '#1F2937',
+      padding: '3rem 1.5rem',
+      textAlign: 'center'
+    },
+    footerLogo: {
+      fontSize: '2rem',
+      fontWeight: 'bold',
+      letterSpacing: '0.2em',
+      marginBottom: '1rem'
+    },
+    footerText: {
+      color: '#9CA3AF'
+    }
+  };
 
   return (
-    <div className="bg-dark-bg text-text-color font-sans overflow-x-hidden">
-      <style>{`.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; } .reveal.is-visible { opacity: 1; transform: translateY(0); }`}</style>
-
+    <div style={styles.container}>
       {/* --- HEADER --- */}
-      <header
-        className={`fixed top-0 left-0 w-full flex justify-between items-center px-6 md:px-12 py-4 z-50 transition-all duration-300 ${
-          isHeaderScrolled
-            ? "bg-dark-bg/90 backdrop-blur-lg border-b border-border-color"
-            : "bg-transparent border-transparent"
-        }`}
-      >
-        <div className="text-3xl font-bold tracking-widest cursor-pointer">
-          VOLT
-        </div>
+      <header style={styles.header}>
+        <div style={styles.logo}>VOLT</div>
 
-        <nav className="hidden md:flex gap-8 items-center">
-          <a
-            href="#models"
-            className="text-white hover:text-primary transition-colors"
-          >
-            Models
-          </a>
-          <a
-            href="#features"
-            className="text-white hover:text-primary transition-colors"
-          >
-            Features
-          </a>
-          <a
-            href="#contact"
-            className="text-white hover:text-primary transition-colors"
-          >
-            Contact
-          </a>
+        <nav style={styles.nav}>
+          <a href="#models" style={styles.navLink}>Models</a>
+          <a href="#features" style={styles.navLink}>Features</a>
+          <Link to="/map" style={styles.navLink}>
+            <FiMapPin size={16} />
+            Find Stations
+          </Link>
+          <a href="#contact" style={styles.navLink}>Contact</a>
         </nav>
 
-        {/* --- DYNAMIC AUTH SECTION --- */}
-        <div className="flex items-center gap-4">
+        {/* --- AUTH SECTION --- */}
+        <div style={styles.authSection}>
           {account ? (
-            // --- LOGGED IN STATE ---
             <div
-              className="text-white relative"
+              style={styles.userInfo}
               onMouseEnter={() => setIsDropdownOpen(true)}
               onMouseLeave={() => setIsDropdownOpen(false)}
             >
-              <div className="flex items-center gap-3 cursor-pointer">
-                <span className="hidden sm:inline font-semibold">
-                  {account.fullName}
+              <div style={styles.userAvatar}>
+                <span style={{ fontWeight: '600' }}>
+                  {account.fullName || account.email}
                 </span>
                 <img
                   src={user.avatar}
                   alt="User Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-primary object-cover"
+                  style={styles.avatar}
                 />
               </div>
 
               {isDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-secondary-bg rounded-lg shadow-lg border border-border-color py-2 animate-fade-in-up animation-delay-0">
-                  <a
-                    href="#"
-                    className="text-white flex items-center gap-3 px-4 py-2 text-sm text-text-color hover:bg-dark-bg transition-colors"
-                  >
+                <div style={styles.dropdown}>
+                  <a href="#" style={styles.dropdownItem}>
                     <FiUser /> My Profile
                   </a>
-                  <a
-                    href="#"
-                    className="text-white flex items-center gap-3 px-4 py-2 text-sm text-text-color hover:bg-dark-bg transition-colors"
-                  >
+                  <a href="#" style={styles.dropdownItem}>
                     <FiShoppingCart /> Order History
                   </a>
-                  <div className="border-t border-border-color my-2"></div>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-dark-bg transition-colors"
-                  >
+                  <div style={{ borderTop: '1px solid #374151', margin: '0.5rem 0' }}></div>
+                  <button onClick={handleLogout} style={{ ...styles.dropdownItem, color: '#F87171' }}>
                     <FiLogOut /> Logout
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            // --- NOT LOGGED IN STATE ---
-            <div className="text-white flex items-center gap-4">
-              {/* --- LOGIN (GHOST BUTTON) --- */}
-              <Link
-                to="/login"
-                className="font-semibold px-5 py-2 rounded-full bg-transparent border border-border-color text-text-muted hover:border-primary hover:text-primary transition-all duration-300"
-              >
+            <div style={styles.authSection}>
+              <Link to="/login" style={{ ...styles.authButton, ...styles.loginButton }}>
                 Login
               </Link>
-
-              {/* --- REGISTER (SOLID BUTTON WITH INVERTED HOVER) --- */}
-              <Link
-                to="/register"
-                className="ext-white font-semibold px-5 py-2 rounded-full bg-primary border-2 border-primary  hover:bg-transparent hover:text-primary transition-all duration-300 transform hover:-translate-y-0.5"
-              >
+              <Link to="/register" style={{ ...styles.authButton, ...styles.registerButton }}>
                 Register
               </Link>
             </div>
@@ -238,54 +351,31 @@ const EbikeHomePage = () => {
         </div>
       </header>
 
-      {/* --- Hero Section (and the rest of the page remains the same) --- */}
-      <section className="h-screen flex items-center justify-center text-center relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-background-zoom"
-            style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1620802051782-725fa33db067?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
-            }}
-          ></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-transparent"></div>
-        </div>
-        <div className="z-10 px-4">
-          <h1
-            className="text-5xl md:text-7xl font-bold mb-4 opacity-0 animate-fade-in-up"
-            style={{ animationDelay: "0.2s" }}
-          >
-            Ride the Future.
-          </h1>
-          <p
-            className="text-lg md:text-xl text-text-muted max-w-2xl mx-auto mb-8 opacity-0 animate-fade-in-up"
-            style={{ animationDelay: "0.5s" }}
-          >
-            Unleash unparalleled performance and iconic design. Welcome to the
-            electric revolution.
+      {/* --- Hero Section --- */}
+      <section style={styles.heroSection}>
+        <div style={styles.heroBackground}></div>
+        <div style={styles.heroOverlay}></div>
+        <div style={styles.heroContent}>
+          <h1 style={styles.heroTitle}>Ride the Future.</h1>
+          <p style={styles.heroSubtitle}>
+            Unleash unparalleled performance and iconic design. Welcome to the electric revolution.
           </p>
-          <button
-            className="bg-primary text-black font-semibold px-10 py-4 rounded-full hover:bg-white hover:-translate-y-1 transform transition-all duration-300 text-lg shadow-lg shadow-primary/30 opacity-0 animate-fade-in-up"
-            style={{ animationDelay: "0.8s" }}
-          >
-            Discover Our Bikes
-          </button>
-        </div>
-        <div
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 animate-fade-in-up"
-          style={{ animationDelay: "1.2s" }}
-        >
-          <div className="w-6 h-10 border-2 border-text-muted rounded-full flex justify-center pt-2 animate-pulse-slow">
-            <div className="w-1 h-2 bg-text-muted rounded-full"></div>
+          <div style={{ ...styles.heroButtons, '@media (min-width: 640px)': { flexDirection: 'row' } }}>
+            <button style={styles.primaryButton}>
+              Discover Our Bikes
+            </button>
+            <Link to="/map" style={styles.mapButton}>
+              <FiMapPin size={20} />
+              Find Charging Stations
+            </Link>
           </div>
         </div>
       </section>
 
       {/* --- Features Section --- */}
-      <section id="features" className={sectionClasses}>
-        <h2 className="text-4xl font-bold text-center mb-16 reveal">
-          Why VOLT?
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+      <section style={styles.featuresSection} id="features">
+        <h2 style={styles.featuresTitle}>Why VOLT?</h2>
+        <div style={styles.featuresGrid}>
           {[
             {
               icon: FiBatteryCharging,
@@ -298,248 +388,45 @@ const EbikeHomePage = () => {
               text: "Crafted from aerospace-grade aluminum for an agile and responsive ride.",
             },
             {
+              icon: FiMapPin,
+              title: "Find Charging Stations",
+              text: "Discover nearby charging stations with our interactive map. Never worry about running out of power.",
+              isMapButton: true,
+            },
+            {
               icon: FiZap,
               title: "Instant Power",
               text: "Experience exhilarating acceleration with our fine-tuned silent motor.",
             },
           ].map((feature, index) => (
-            <div
-              key={index}
-              className="bg-secondary-bg p-8 rounded-2xl text-center border border-border-color hover:border-primary hover:-translate-y-2 transition-all duration-300 group reveal"
-              style={{ transitionDelay: `${index * 100}ms` }}
-            >
-              <div className="inline-block p-4 bg-dark-bg rounded-full mb-6 border border-border-color group-hover:bg-primary transition-colors duration-300">
-                <feature.icon className="text-4xl text-primary group-hover:text-black transition-colors duration-300" />
+            <div key={index} style={styles.featureCard}>
+              <div style={styles.featureIcon}>
+                <feature.icon size={32} color="#10B981" />
               </div>
-              <h3 className="text-2xl font-semibold mb-3">{feature.title}</h3>
-              <p className="text-text-muted leading-relaxed">{feature.text}</p>
+              <h3 style={styles.featureTitle}>{feature.title}</h3>
+              <p style={styles.featureText}>{feature.text}</p>
+              {feature.isMapButton && (
+                <Link to="/map" style={{
+                  ...styles.secondaryButton,
+                  backgroundColor: '#10B981',
+                  color: '#000000',
+                  borderColor: '#10B981'
+                }}>
+                  <FiMapPin size={16} />
+                  Open Map
+                </Link>
+              )}
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ... (The rest of the component from the previous step remains unchanged) ... */}
-
-      {/* --- Product Showcase Section --- */}
-      <section id="models" className={`${sectionClasses} bg-secondary-bg`}>
-        <h2 className="text-4xl font-bold text-center mb-16 reveal">
-          Meet Your Next Ride
-        </h2>
-        <div className="relative max-w-6xl mx-auto">
-          <div className="overflow-hidden rounded-2xl">
-            <div
-              className="flex transition-transform duration-700 ease-in-out"
-              style={{ transform: `translateX(-${currentProduct * 100}%)` }}
-            >
-              {products.map((product) => (
-                <div
-                  key={product.name}
-                  className="flex-shrink-0 w-full grid grid-cols-1 lg:grid-cols-2 gap-0 items-center"
-                >
-                  <div className="h-80 lg:h-full w-full">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-8 md:p-12 bg-secondary-bg">
-                    <h3 className="text-4xl font-bold mb-4">{product.name}</h3>
-                    <p className="text-text-muted mb-6 h-20">
-                      {product.description}
-                    </p>
-                    <div className="flex gap-8 mb-8 border-t border-b border-border-color py-4">
-                      <div className="text-center">
-                        <FiTrendingUp className="text-primary text-2xl mx-auto mb-1" />
-                        <span className="font-bold text-lg">
-                          {product.specs.range}
-                        </span>
-                        <p className="text-sm text-text-muted">Range</p>
-                      </div>
-                      <div className="text-center">
-                        <FiZap className="text-primary text-2xl mx-auto mb-1" />
-                        <span className="font-bold text-lg">
-                          {product.specs.speed}
-                        </span>
-                        <p className="text-sm text-text-muted">Top Speed</p>
-                      </div>
-                    </div>
-                    <div className="text-4xl font-semibold text-primary mb-6">
-                      {product.price}
-                    </div>
-                    <button className="bg-transparent text-primary font-semibold px-8 py-3 rounded-full border-2 border-primary hover:bg-primary hover:text-black transition-colors duration-300">
-                      Learn More
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <button
-            onClick={prevProduct}
-            className="absolute top-1/2 -translate-y-1/2 -left-6 w-12 h-12 rounded-full bg-dark-bg/50 border border-border-color flex items-center justify-center hover:bg-primary hover:text-black transition-all backdrop-blur-sm z-10"
-          >
-            &lt;
-          </button>
-          <button
-            onClick={nextProduct}
-            className="absolute top-1/2 -translate-y-1/2 -right-6 w-12 h-12 rounded-full bg-dark-bg/50 border border-border-color flex items-center justify-center hover:bg-primary hover:text-black transition-all backdrop-blur-sm z-10"
-          >
-            &gt;
-          </button>
-        </div>
-      </section>
-
-      {/* --- Testimonials Section --- */}
-      <section className={sectionClasses}>
-        <h2 className="text-4xl font-bold text-center mb-16 reveal">
-          Trusted by Riders
-        </h2>
-        <div className="relative max-w-3xl mx-auto h-72 reveal">
-          <FaQuoteLeft className="absolute top-0 left-0 text-8xl text-border-color/50 -z-10" />
-          {testimonials.map((testimonial, index) => (
-            <div
-              key={index}
-              className={`absolute inset-0 flex flex-col justify-center items-center text-center p-4 transition-all duration-500 ease-in-out ${
-                index === currentTestimonial
-                  ? "opacity-100 translate-x-0"
-                  : "opacity-0"
-              } ${
-                index < currentTestimonial ? "-translate-x-8" : "translate-x-8"
-              }`}
-            >
-              <div className="flex gap-1 mb-6 text-yellow-400">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <FaStar key={i} />
-                ))}
-              </div>
-              <p className="text-xl md:text-2xl italic text-text-muted mb-6">
-                "{testimonial.quote}"
-              </p>
-              <p className="font-semibold text-lg">- {testimonial.author}</p>
-            </div>
-          ))}
-          <button
-            onClick={prevTestimonial}
-            className="absolute top-1/2 -translate-y-1/2 -left-12 text-2xl p-2 rounded-full hover:bg-secondary-bg transition-colors"
-          >
-            &lt;
-          </button>
-          <button
-            onClick={nextTestimonial}
-            className="absolute top-1/2 -translate-y-1/2 -right-12 text-2xl p-2 rounded-full hover:bg-secondary-bg transition-colors"
-          >
-            &gt;
-          </button>
-        </div>
-      </section>
-
-      {/* --- Call to Action Section --- */}
-      <section className="relative py-28 px-6 text-center bg-secondary-bg">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-10"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1511994294314-3c662760f3d5?auto=format&fit=crop&q=80&w=2670')",
-          }}
-        ></div>
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <h2 className="text-4xl font-bold mb-4 reveal">
-            Ready to Join the Revolution?
-          </h2>
-          <p
-            className="text-xl text-text-muted mb-8 reveal"
-            style={{ transitionDelay: "100ms" }}
-          >
-            Schedule a free test ride today and feel the VOLT difference.
-          </p>
-          <button
-            className="bg-primary text-black font-semibold px-10 py-4 rounded-full hover:bg-white hover:-translate-y-1 transform transition-all duration-300 text-lg shadow-lg shadow-primary/30 reveal"
-            style={{ transitionDelay: "200ms" }}
-          >
-            Book a Test Ride
-          </button>
         </div>
       </section>
 
       {/* --- Footer --- */}
-      <footer
-        id="contact"
-        className="bg-dark-bg text-text-muted py-16 px-6 md:px-12"
-      >
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-1">
-            <h3 className="text-2xl font-bold text-white mb-2">VOLT</h3>
-            <p className="max-w-xs">
-              Ride the future. Experience freedom, power, and style on two
-              wheels.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-semibold text-white mb-4">Products</h4>
-            <ul className="space-y-2">
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Apex
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Vortex
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Glide
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Accessories
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-white mb-4">Company</h4>
-            <ul className="space-y-2">
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  About Us
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Careers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Press
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-white mb-4">Follow Us</h4>
-            <div className="flex space-x-4">
-              <a href="#" className="hover:text-primary transition-colors">
-                Facebook
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                Instagram
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                Twitter
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="mt-12 pt-8 border-t border-border-color text-center text-sm">
-          <p>
-            &copy; {new Date().getFullYear()} VOLT Bikes. All Rights Reserved.
-          </p>
-        </div>
+      <footer style={styles.footer}>
+        <div style={styles.footerLogo}>VOLT</div>
+        <p style={styles.footerText}>
+          Powering the future of urban mobility.
+        </p>
       </footer>
     </div>
   );
