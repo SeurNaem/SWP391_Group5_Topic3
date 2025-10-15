@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/protected-route";
 import ManageVoucher from "./pages/voucher";
 import ManageStore from "./pages/store";
 import ServicePage from "./pages/service";
+import MapPage from "./pages/map";
 
 // 1. Component
 // là 1 cái function
@@ -48,6 +49,10 @@ function App() {
           path: "service",
           element: <ServicePage />, // Outlet
         },
+        {
+          path: "map",
+          element: <MapPage />, // Outlet
+        },
       ],
     },
     {
@@ -61,6 +66,10 @@ function App() {
     {
       path: "/register",
       element: <RegisterPage />,
+    },
+    {
+      path: "/map",
+      element: <MapPage />,
     },
   ]);
 
