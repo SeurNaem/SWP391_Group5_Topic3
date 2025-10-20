@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Input, Button, Select, Spin, message, Space, Typography } from 'antd';
-import { SearchOutlined, EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Space, Typography, message } from 'antd';
+import { EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import MapComponent from '../../components/map';
+import ChargingStationList from '../../components/ChargingStationList';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 const MapPage = () => {
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [selectedStation, setSelectedStation] = useState(null);
-    const [filterStatus, setFilterStatus] = useState('all');
     const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Ho Chi Minh City
     const [mapZoom, setMapZoom] = useState(13);
 
@@ -84,16 +83,7 @@ const MapPage = () => {
         }
     ];
 
-    // Filter stations based on search and status
-    const filteredStations = chargingStations.filter(station => {
-        const matchesSearch = searchText === '' ||
-            station.title.toLowerCase().includes(searchText.toLowerCase()) ||
-            station.address.toLowerCase().includes(searchText.toLowerCase());
-
-        const matchesStatus = filterStatus === 'all' || station.status.toLowerCase() === filterStatus.toLowerCase();
-
-        return matchesSearch && matchesStatus;
-    });
+    // Note: Station filtering is now handled by ChargingStationList component
 
     // Handle map click
     const handleMapClick = (e) => {
@@ -179,40 +169,7 @@ const MapPage = () => {
                     </Card>
                 </Col>
 
-                {/* Search and Filters */}
-                <Col span={24}>
-                    <Card>
-                        <Row gutter={[16, 16]}>
-                            <Col xs={24} sm={12} md={8}>
-                                <Input
-                                    placeholder="Search stations by name or address..."
-                                    prefix={<SearchOutlined />}
-                                    value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
-                                    allowClear
-                                />
-                            </Col>
-                            <Col xs={24} sm={12} md={8}>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Filter by status"
-                                    value={filterStatus}
-                                    onChange={setFilterStatus}
-                                >
-                                    <Option value="all">All Stations</Option>
-                                    <Option value="available">Available</Option>
-                                    <Option value="occupied">Occupied</Option>
-                                    <Option value="maintenance">Under Maintenance</Option>
-                                </Select>
-                            </Col>
-                            <Col xs={24} sm={24} md={8}>
-                                <Text type="secondary">
-                                    Found {filteredStations.length} charging stations
-                                </Text>
-                            </Col>
-                        </Row>
-                    </Card>
-                </Col>
+
 
                 {/* Map */}
                 <Col xs={24} lg={16}>
@@ -221,97 +178,22 @@ const MapPage = () => {
                             center={mapCenter}
                             zoom={mapZoom}
                             height="520px"
-                            markers={filteredStations}
+                            markers={chargingStations}
                             onMapClick={handleMapClick}
                             showCurrentLocation={true}
                         />
                     </Card>
                 </Col>
 
-                {/* Station List */}
+                {/* Charging Station List with Distance Sorting */}
                 <Col xs={24} lg={8}>
-                    <Card
-                        title="Charging Stations"
-                        style={{ height: '600px' }}
-                        bodyStyle={{ padding: 0, overflow: 'auto', height: '520px' }}
-                    >
-                        {loading ? (
-                            <div style={{ textAlign: 'center', padding: '50px' }}>
-                                <Spin size="large" />
-                            </div>
-                        ) : (
-                            <div>
-                                {filteredStations.map((station) => (
-                                    <div
-                                        key={station.id}
-                                        style={{
-                                            padding: '16px',
-                                            borderBottom: '1px solid #f0f0f0',
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedStation?.id === station.id ? '#e6f7ff' : 'white',
-                                            transition: 'background-color 0.3s'
-                                        }}
-                                        onClick={() => handleStationSelect(station)}
-                                    >
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <Text strong style={{ fontSize: '14px' }}>
-                                                {station.title}
-                                            </Text>
-                                            <div style={{ float: 'right' }}>
-                                                <span
-                                                    style={{
-                                                        display: 'inline-block',
-                                                        width: '8px',
-                                                        height: '8px',
-                                                        borderRadius: '50%',
-                                                        backgroundColor: getStatusColor(station.status),
-                                                        marginRight: '4px'
-                                                    }}
-                                                />
-                                                <Text style={{ fontSize: '12px' }}>
-                                                    {station.status}
-                                                </Text>
-                                            </div>
-                                        </div>
-
-                                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                                            {station.description}
-                                        </Text>
-
-                                        <div style={{ marginTop: '8px' }}>
-                                            <Text style={{ fontSize: '11px', color: '#666' }}>
-                                                📍 {station.address}
-                                            </Text>
-                                        </div>
-
-                                        <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <Text style={{ fontSize: '11px' }}>
-                                                    ⚡ {station.power} • {station.price}
-                                                </Text>
-                                            </div>
-                                            <Button
-                                                size="small"
-                                                type="link"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    getDirections(station);
-                                                }}
-                                            >
-                                                Directions
-                                            </Button>
-                                        </div>
-
-                                        <div style={{ marginTop: '4px' }}>
-                                            <Text style={{ fontSize: '10px', color: '#999' }}>
-                                                Connectors: {station.chargerTypes.join(', ')}
-                                            </Text>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </Card>
+                    <ChargingStationList
+                        stations={chargingStations}
+                        onStationSelect={handleStationSelect}
+                        selectedStation={selectedStation}
+                        searchText={searchText}
+                        onSearchChange={setSearchText}
+                    />
                 </Col>
 
                 {/* Selected Station Details */}

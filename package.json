@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.9.0",
+    "@supabase/supabase-js": "^2.75.1",
     "@tailwindcss/vite": "^4.1.13",
     "antd": "^5.27.3",
     "axios": "^1.12.1",
     "dayjs": "^1.11.18",
+    "firebase": "^12.4.0",
     "leaflet": "^1.9.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
