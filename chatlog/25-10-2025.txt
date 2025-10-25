@@ -385,7 +385,7 @@ Verification:
 The pages should now work correctly without any linting errors, and you'll have better error logging for debugging purposes!
 
 Google login successful: _UserImpl
-index.jsx:74 Access token: ya29.a0AQQ_BDSF5aBz2s4blm4dQzA1aotoLAHuQlR4d0tcKlQIKsCnp0yrV4QyX7T1zsH4BVl6QW3xAIvUULi80GfNKz0dyHYFe1GCgc6mofzeqEtYsCHacH7rfKX0xRV3jDzLjJAQw-ho2oHpRLcY_NDm0KsVF4kSnXQ6GFkwIWxiXO_SvjLVxBgqWdf0L4fSg4OuT-Bt4ycaCgYKASQSARESFQHGX2Mi5L1pOX6DFVR2JR9bKrU58Q0206
+index.jsx:74 Access token:
 
 I can see that the Google login is working and returning a successful authentication with user data and access token. However, it seems like the Google login flow isn't complete - it's just logging the data but not actually logging the user into your application or navigating them anywhere.
 
