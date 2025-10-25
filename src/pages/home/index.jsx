@@ -8,7 +8,7 @@ import {
   FiLogOut,
   FiShoppingCart,
 } from "react-icons/fi";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
 import { themeColors } from "../../utils/theme";
@@ -16,6 +16,7 @@ import { themeColors } from "../../utils/theme";
 const EbikeHomePage = () => {
   const account = useSelector((store) => store.account);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
 
@@ -24,14 +25,44 @@ const EbikeHomePage = () => {
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=2080",
   };
 
+  // Function to handle navigation with authentication check
+  const handleAuthenticatedNavigation = (path) => {
+    if (!account) {
+      // If user is not logged in, redirect to login page
+      navigate('/login');
+    } else {
+      // If user is logged in, navigate to the intended path
+      navigate(path);
+    }
+  };
+
   useEffect(() => {
     const handleScroll = () => setIsHeaderScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Handle clicks outside dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close dropdown if clicking outside of it
+      if (isDropdownOpen && !event.target.closest('.user-dropdown-container')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isDropdownOpen]);
+
   const handleLogout = () => {
     dispatch(logout());
+  };
+
+  // Toggle dropdown when avatar is clicked
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setIsDropdownOpen(!isDropdownOpen);
   };
 
   const styles = {
@@ -88,7 +119,8 @@ const EbikeHomePage = () => {
     userAvatar: {
       display: 'flex',
       alignItems: 'center',
-      gap: '0.75rem'
+      gap: '0.75rem',
+      cursor: 'pointer'
     },
     avatar: {
       width: '2.5rem',
@@ -324,9 +356,14 @@ const EbikeHomePage = () => {
           >
             Features
           </a>
-          <Link
-            to="/map"
-            style={styles.navLink}
+          <button
+            onClick={() => handleAuthenticatedNavigation('/map')}
+            style={{
+              ...styles.navLink,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
             onMouseEnter={(e) => {
               e.target.style.color = themeColors.primary;
               e.target.style.transform = 'translateY(-1px)';
@@ -338,7 +375,7 @@ const EbikeHomePage = () => {
           >
             <FiMapPin size={16} />
             Find Stations
-          </Link>
+          </button>
           <a
             href="#contact"
             style={styles.navLink}
@@ -359,11 +396,13 @@ const EbikeHomePage = () => {
         <div style={styles.authSection}>
           {account ? (
             <div
+              className="user-dropdown-container"
               style={styles.userInfo}
-              onMouseEnter={() => setIsDropdownOpen(true)}
-              onMouseLeave={() => setIsDropdownOpen(false)}
             >
-              <div style={styles.userAvatar}>
+              <div
+                style={styles.userAvatar}
+                onClick={toggleDropdown}
+              >
                 <span style={{ fontWeight: '600' }}>
                   {account.fullName || account.email}
                 </span>
@@ -380,12 +419,18 @@ const EbikeHomePage = () => {
                     href="#"
                     style={styles.dropdownItem}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#374151';
-                      e.target.style.transform = 'translateX(4px)';
+                      e.target.style.backgroundColor = themeColors.primary;
+                      e.target.style.transform = 'scale(1.02)';
+                      e.target.style.color = '#ffffff';
+                      e.target.style.borderRadius = '0.375rem';
+                      e.target.style.boxShadow = '0 4px 12px rgba(77, 160, 214, 0.3)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = 'transparent';
-                      e.target.style.transform = 'translateX(0)';
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.color = '#ffffff';
+                      e.target.style.borderRadius = '0';
+                      e.target.style.boxShadow = 'none';
                     }}
                   >
                     <FiUser /> My Profile
@@ -394,12 +439,18 @@ const EbikeHomePage = () => {
                     href="#"
                     style={styles.dropdownItem}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#374151';
-                      e.target.style.transform = 'translateX(4px)';
+                      e.target.style.backgroundColor = themeColors.primary;
+                      e.target.style.transform = 'scale(1.02)';
+                      e.target.style.color = '#ffffff';
+                      e.target.style.borderRadius = '0.375rem';
+                      e.target.style.boxShadow = '0 4px 12px rgba(77, 160, 214, 0.3)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = 'transparent';
-                      e.target.style.transform = 'translateX(0)';
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.color = '#ffffff';
+                      e.target.style.borderRadius = '0';
+                      e.target.style.boxShadow = 'none';
                     }}
                   >
                     <FiShoppingCart /> Order History
@@ -409,14 +460,18 @@ const EbikeHomePage = () => {
                     onClick={handleLogout}
                     style={{ ...styles.dropdownItem, color: '#F87171' }}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#7F1D1D';
-                      e.target.style.transform = 'translateX(4px)';
-                      e.target.style.color = '#FECACA';
+                      e.target.style.backgroundColor = '#DC2626';
+                      e.target.style.transform = 'scale(1.02)';
+                      e.target.style.color = '#ffffff';
+                      e.target.style.borderRadius = '0.375rem';
+                      e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.4)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = 'transparent';
-                      e.target.style.transform = 'translateX(0)';
+                      e.target.style.transform = 'scale(1)';
                       e.target.style.color = '#F87171';
+                      e.target.style.borderRadius = '0';
+                      e.target.style.boxShadow = 'none';
                     }}
                   >
                     <FiLogOut /> Logout
@@ -484,8 +539,8 @@ const EbikeHomePage = () => {
             >
               Discover Our Bikes
             </button>
-            <Link
-              to="/map"
+            <button
+              onClick={() => handleAuthenticatedNavigation('/map')}
               style={styles.mapButton}
               onMouseEnter={(e) => {
                 e.target.style.transform = 'translateY(-3px)';
@@ -500,7 +555,7 @@ const EbikeHomePage = () => {
             >
               <FiMapPin size={20} />
               Find Charging Stations
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -539,8 +594,8 @@ const EbikeHomePage = () => {
               <h3 style={styles.featureTitle}>{feature.title}</h3>
               <p style={styles.featureText}>{feature.text}</p>
               {feature.isMapButton && (
-                <Link
-                  to="/map"
+                <button
+                  onClick={() => handleAuthenticatedNavigation('/map')}
                   style={{
                     backgroundColor: themeColors.primary,
                     color: '#ffffff',
@@ -571,7 +626,7 @@ const EbikeHomePage = () => {
                 >
                   <FiMapPin size={14} />
                   Open Map
-                </Link>
+                </button>
               )}
             </div>
           ))}

@@ -1372,3 +1372,176 @@ Visual Improvements:
 ✅ Clean Appearance: No longer stretches across the card width
 ✅ Consistent Theme: Maintains the same blue color and hover effects
 The button should now appear much more balanced and proportional within the feature card, similar to how a small action button would naturally fit within the card's content area!
+
+make the find stations, find charging stations and open map buttons transfer users who hasn't login to login page
+
+I need to add authentication checks to redirect non-logged users to the login page when they click on "Find Stations", "Find Charging Stations", or "Open Map" buttons. Let me implement this functionality.
+
+Read index.jsx, lines 10 to 30
+
+I need to import useNavigate from React Router and create a function to handle authentication checks. Let me update the imports first:
+
+index.jsx+1-1
+Now let me add the navigate hook and create a function to handle authentication checks:
+
+index.jsx+12-0
+Now let me find and update the "Find Stations" link in the navigation:
+
+Read index.jsx, lines 330 to 350
+
+I need to replace the "Find Stations" Link with a button that uses the authentication handler. Let me find the complete link:
+
+Read index.jsx, lines 340 to 360
+
+Now let me replace the "Find Stations" Link with a button that handles authentication:
+
+index.jsx+9-4
+Now let me find and update the "Find Charging Stations" button in the hero section:
+
+Read index.jsx, lines 500 to 520
+
+Let me replace the "Find Charging Stations" Link with a button:
+
+index.jsx+3-3
+Now let me find and update the "Open Map" button in the feature card:
+
+Read index.jsx, lines 550 to 580
+
+Read index.jsx, lines 575 to 600
+
+Now let me replace the "Open Map" Link with a button:
+
+index.jsx+3-3
+Perfect! I've successfully implemented authentication checks for all the map-related buttons. Here's a summary of what I've done:
+
+✅ Added Authentication Checks for Map Navigation
+Implementation Details:
+Added Navigation Hook: Imported and added useNavigate from React Router
+Created Authentication Handler: Added handleAuthenticatedNavigation() function that:
+Checks if user is logged in (account exists)
+Redirects to /login if not authenticated
+Navigates to intended page if authenticated
+Updated Buttons:
+"Find Stations" (Navigation Bar):
+
+Changed from <Link> to <button> with onClick handler
+Maintains all hover effects and styling
+"Find Charging Stations" (Hero Section):
+
+Changed from <Link> to <button> with onClick handler
+Preserves all hover animations and theme colors
+"Open Map" (Feature Card):
+
+Changed from <Link> to <button> with onClick handler
+Keeps compact styling and balanced appearance
+User Experience:
+✅ Logged In Users: Can access map functionality normally
+✅ Non-Logged Users: Automatically redirected to login page
+✅ Seamless Integration: All styling and hover effects preserved
+✅ Consistent Behavior: All three buttons now have the same authentication flow
+Security Benefits:
+🔒 Protected Routes: Ensures only authenticated users can access map features
+🔒 User-Friendly: Clear path for users to login and access features
+🔒 Consistent Protection: All map-related entry points are secured
+Now when non-authenticated users click any of these buttons, they'll be smoothly redirected to the login page, and after logging in, they can access the map functionality!
+
+make the drop down only appear when clicked on the avatar, and closed when click elsewhere
+
+I need to modify the dropdown behavior to only open when the avatar is clicked (not hovered) and close when clicking elsewhere. Let me implement this functionality.
+
+Read index.jsx, lines 15 to 50
+
+Now I need to add a useEffect to handle clicks outside the dropdown and find the current dropdown implementation. Let me first add the click outside handler:
+
+index.jsx+19-0
+Now I need to find the current dropdown implementation and update it. Let me search for the dropdown:
+
+Read index.jsx, lines 395 to 415
+
+Perfect! I found the user dropdown section. Now I need to update it to use click instead of hover, and add the CSS class for click outside detection:
+
+index.jsx+5-3
+Now I need to update the userAvatar style to make it clear it's clickable. Let me find the userAvatar style and add a cursor pointer:
+
+Read index.jsx, lines 115 to 130
+
+Let me add cursor pointer to the userAvatar style:
+
+index.jsx+2-1
+Perfect! I've successfully implemented the click-based dropdown functionality. Here's a summary of the changes:
+
+✅ Updated Dropdown to Click-Based Interaction
+Changes Made:
+Added Click Outside Handler:
+
+Added useEffect to detect clicks outside the dropdown
+Uses CSS class .user-dropdown-container to identify the dropdown area
+Automatically closes dropdown when clicking elsewhere
+Created Toggle Function:
+
+Added toggleDropdown() function to handle avatar clicks
+Uses stopPropagation() to prevent event bubbling
+Toggles dropdown open/closed state
+Updated Dropdown Trigger:
+
+Removed: onMouseEnter and onMouseLeave hover events
+Added: onClick={toggleDropdown} to the avatar area
+Added: className="user-dropdown-container" for click detection
+Enhanced Styling:
+
+Added cursor: 'pointer' to userAvatar style
+Makes it clear the avatar is clickable
+New Behavior:
+✅ Click to Open: Dropdown opens only when clicking on the avatar/name area
+✅ Click Outside to Close: Dropdown closes when clicking anywhere else on the page
+✅ Click to Toggle: Clicking the avatar again will close the dropdown
+✅ Visual Feedback: Cursor changes to pointer when hovering over the avatar
+User Experience Improvements:
+🎯 More Precise Control: No more accidental dropdown opening/closing from mouse movement
+🎯 Intentional Interaction: Users must deliberately click to access dropdown
+🎯 Standard Behavior: Follows common UI patterns for dropdown menus
+🎯 Mobile Friendly: Works better on touch devices where hover doesn't exist
+The dropdown now behaves like a standard clickable dropdown menu, providing better user control and preventing accidental interactions!
+
+
+I can see in the image that the "Order History" button appears off-balance when hovered - it looks like the transform and styling is causing alignment issues. The horizontal slide movement (translateX) is probably making the items misaligned within the dropdown. Let me fix this by adjusting the hover effects to maintain better balance.
+
+Read index.jsx, lines 420 to 440
+
+I see the issue. The translateX(6px) is causing the items to shift horizontally and break the alignment. Let me fix this by removing the horizontal movement and using a more subtle scale effect instead:
+
+I need to be more specific. Let me update each dropdown item individually by including more context:
+
+index.jsx+2-2
+index.jsx+2-2
+Now let me update the logout button as well:
+
+index.jsx+2-2
+Perfect! I've fixed the balance issue with the dropdown menu hover effects:
+
+✅ Fixed Dropdown Button Balance
+Problem Solved:
+Removed Horizontal Movement: Changed from translateX(6px) to scale(1.02)
+Maintained Visual Impact: Kept the vibrant colors, shadows, and rounded corners
+Better Alignment: Items no longer shift horizontally and break the dropdown layout
+New Hover Effects:
+For "My Profile" and "Order History":
+
+🎯 Subtle Scale: scale(1.02) creates a gentle grow effect without shifting position
+🎨 Theme Color Background: Still uses vibrant theme blue
+⚪ White Text: Maintains high contrast on hover
+🎯 Rounded Corners: Clean modern appearance
+💫 Blue Glow: Elegant shadow effect
+For "Logout" Button:
+
+🎯 Balanced Scale: Same scale(1.02) for consistency
+🔴 Red Background: Bold red hover state
+⚪ White Text: Clear contrast
+🔥 Red Glow: Appropriate danger styling
+Visual Benefits:
+✅ Perfect Alignment: No more off-balance positioning
+✅ Smooth Animation: Gentle scale effect feels natural
+✅ Consistent Layout: Dropdown maintains its structure during hover
+✅ Professional Feel: Clean, modern hover interactions
+✅ Better UX: Users can hover confidently without layout shifts
+The dropdown buttons now have perfectly balanced hover effects that provide excellent visual feedback without disrupting the layout!
