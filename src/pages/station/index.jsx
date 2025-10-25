@@ -1,5 +1,5 @@
 import { Table } from 'antd'
-import axios from 'axios';
+import api from '../../config/axios';
 import React, { useEffect, useState } from 'react'
 
 const ManageStation = () => {
@@ -20,9 +20,7 @@ const ManageStation = () => {
   ];
 
   const fetchStation = async () => {
-    const response = await axios.get(
-      'https://68d390e7214be68f8c6646ef.mockapi.io/station'
-    );
+    const response = await api.get('stations');
     console.log(response.data);
     setStations(response.data);
   };

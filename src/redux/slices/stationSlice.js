@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../../config/axios';
 
 // Async thunks for API calls
 export const fetchStations = createAsyncThunk(
     'stations/fetchStations',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await axios.get('https://68d390e7214be68f8c6646ef.mockapi.io/station');
+            const response = await api.get('stations');
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -18,10 +18,7 @@ export const createStation = createAsyncThunk(
     'stations/createStation',
     async (stationData, { rejectWithValue }) => {
         try {
-            const response = await axios.post(
-                'https://68d390e7214be68f8c6646ef.mockapi.io/station',
-                stationData
-            );
+            const response = await api.post('stations', stationData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -33,10 +30,7 @@ export const updateStation = createAsyncThunk(
     'stations/updateStation',
     async ({ id, ...stationData }, { rejectWithValue }) => {
         try {
-            const response = await axios.put(
-                `https://68d390e7214be68f8c6646ef.mockapi.io/station/${id}`,
-                stationData
-            );
+            const response = await api.put(`stations/${id}`, stationData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -48,7 +42,7 @@ export const deleteStation = createAsyncThunk(
     'stations/deleteStation',
     async (id, { rejectWithValue }) => {
         try {
-            await axios.delete(`https://68d390e7214be68f8c6646ef.mockapi.io/station/${id}`);
+            await api.delete(`stations/${id}`);
             return id;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);

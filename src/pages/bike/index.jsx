@@ -1,5 +1,5 @@
 import { Table } from "antd";
-import axios from "axios";
+import api from "../../config/axios";
 import React, { useEffect, useState } from "react";
 
 const ManageBike = () => {
@@ -19,9 +19,7 @@ const ManageBike = () => {
   ];
 
   const fetchBike = async () => {
-    const response = await axios.get(
-      "https://68c56218a712aaca2b689e57.mockapi.io/bike"
-    );
+    const response = await api.get("bikes");
     console.log(response.data);
     setBikes(response.data);
 

@@ -1,6 +1,6 @@
 import { Button, Form, Input, Modal, Popconfirm, Table } from "antd";
 import { useForm } from "antd/es/form/Form";
-import axios from "axios";
+import api from "../../config/axios";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -49,9 +49,7 @@ const ManageCategory = () => {
               title="Delete category"
               onConfirm={async () => {
                 // => cho phép delete
-                await axios.delete(
-                  `https://68ce92096dc3f350777f6302.mockapi.io/Category/${id}`
-                );
+                await api.delete(`categories/${id}`);
 
                 fetchCategories(); // cập nhật lại danh sách
                 toast.success("Successfully remove category!");
@@ -72,9 +70,7 @@ const ManageCategory = () => {
     console.log("fetching data from API...");
 
     // đợi BE trả về dữ liệu
-    const response = await axios.get(
-      "https://68ce92096dc3f350777f6302.mockapi.io/Category"
-    );
+    const response = await api.get("categories");
 
     console.log(response.data);
     setCategories(response.data);
@@ -86,16 +82,10 @@ const ManageCategory = () => {
 
     if (id) {
       // => update
-      response = await axios.put(
-        `https://68ce92096dc3f350777f6302.mockapi.io/Category/${id}`,
-        values
-      );
+      response = await api.put(`categories/${id}`, values);
     } else {
       // => create new
-      response = await axios.post(
-        "https://68ce92096dc3f350777f6302.mockapi.io/Category",
-        values
-      );
+      response = await api.post("categories", values);
     }
 
     console.log(response.data);

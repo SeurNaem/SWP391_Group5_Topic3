@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../../config/axios';
 
 // Async thunks for API calls
 export const fetchCategories = createAsyncThunk(
     'categories/fetchCategories',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await axios.get('https://68d390e7214be68f8c6646ef.mockapi.io/category');
+            const response = await api.get('categories');
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -18,10 +18,7 @@ export const createCategory = createAsyncThunk(
     'categories/createCategory',
     async (categoryData, { rejectWithValue }) => {
         try {
-            const response = await axios.post(
-                'https://68ce92096dc3f350777f6302.mockapi.io/Category',
-                categoryData
-            );
+            const response = await api.post('categories', categoryData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -33,10 +30,7 @@ export const updateCategory = createAsyncThunk(
     'categories/updateCategory',
     async ({ id, ...categoryData }, { rejectWithValue }) => {
         try {
-            const response = await axios.put(
-                `https://68ce92096dc3f350777f6302.mockapi.io/Category/${id}`,
-                categoryData
-            );
+            const response = await api.put(`categories/${id}`, categoryData);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
@@ -48,7 +42,7 @@ export const deleteCategory = createAsyncThunk(
     'categories/deleteCategory',
     async (id, { rejectWithValue }) => {
         try {
-            await axios.delete(`https://68ce92096dc3f350777f6302.mockapi.io/Category/${id}`);
+            await api.delete(`categories/${id}`);
             return id;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);

@@ -2,16 +2,18 @@ import axios from "axios";
 
 // Set config defaults when creating the instance
 const api = axios.create({
-  baseURL: "http://14.225.212.245:8080/api/",
+  baseURL: "https://arlena-meandrous-unethnologically.ngrok-free.dev/api/",
 });
 
-// Thêm token trước khi gửi request
+// Add ngrok-skip-browser-warning header for ngrok
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token")?.replaceAll('"', "");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+    // Add ngrok header to skip browser warning
+    config.headers["ngrok-skip-browser-warning"] = "true";
     return config;
   },
   (error) => {
