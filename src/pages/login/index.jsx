@@ -37,8 +37,8 @@ const LoginPage = () => {
   const onFinish = async (values) => {
     setIsLoading(true);
     try {
-      const response = await api.post("/login", values);
-      toast.success("Successfully create new account!");
+      const response = await api.post("Auth/login", values);
+      toast.success("Successfully logged in!");
       console.log(response);
       const { token, role } = response.data;
       localStorage.setItem("token", token);
@@ -104,12 +104,15 @@ const LoginPage = () => {
             requiredMark={false}
           >
             <Form.Item
-              label="Phone"
-              name="phone"
-              rules={[{ required: true, message: "Phone is required" }]}
+              label="Email"
+              name="email"
+              rules={[
+                { required: true, message: "Email is required" },
+                { type: "email", message: "Please enter a valid email address" }
+              ]}
             >
               <Input
-                placeholder="Enter your phone number"
+                placeholder="Enter your email address"
                 prefix={<MailOutlined />}
                 allowClear
               />

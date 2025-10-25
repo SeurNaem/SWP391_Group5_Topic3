@@ -37,8 +37,8 @@ const RegisterPage = () => {
   const onFinish = async (values) => {
     setIsLoading(true);
     try {
-      const response = await api.post("/register", values);
-      toast.success("Successfully create new account!");
+      const response = await api.post("Auth/register", values);
+      toast.success("Successfully created new account!");
       navigate("/login");
       console.log(response);
     } catch (e) {
@@ -89,8 +89,8 @@ const RegisterPage = () => {
                         v && v.trim()
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error("Full name cannot be empty")
-                            ),
+                            new Error("Full name cannot be empty")
+                          ),
                     },
                   ]}
                 >
@@ -148,10 +148,10 @@ const RegisterPage = () => {
                         !v || validatePhone(v)
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error(
-                                "Phone must start with 0 and be 10–11 digits"
-                              )
-                            ),
+                            new Error(
+                              "Phone must start with 0 and be 10–11 digits"
+                            )
+                          ),
                     },
                   ]}
                 >
@@ -177,8 +177,8 @@ const RegisterPage = () => {
                         !v || validateEmail(v)
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error("Please enter a valid email")
-                            ),
+                            new Error("Please enter a valid email")
+                          ),
                     },
                   ]}
                 >
