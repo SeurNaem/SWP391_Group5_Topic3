@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 // import "antd/dist/reset.css";
 import { useDispatch } from "react-redux";
 import { login } from "../../redux/accountSlice";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../../config/firebase";
 import logo from "../../assets/logo.png";
 
@@ -100,6 +100,51 @@ const LoginPage = () => {
         email: error.customData?.email
       });
       message.error("Google login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleLoginGithub = async () => {
+    const provider = new GithubAuthProvider();
+    setIsLoading(true);
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const token = credential.accessToken;
+      const user = result.user;
+
+      console.log("GitHub login successful:", user);
+      console.log("Access token:", token);
+
+      // Store user data in localStorage (similar to regular login)
+      const userData = {
+        fullName: user.displayName || user.email.split('@')[0], // Use email prefix if no display name
+        email: user.email,
+        avatar: user.photoURL,
+        role: "USER", // Default role for GitHub users
+        token: token // Use GitHub token or you might want to exchange it for your backend token
+      };
+
+      localStorage.setItem("token", token);
+
+      // Update Redux state
+      dispatch(login(userData));
+
+      // Show success message
+      toast.success("Successfully logged in with GitHub!");
+
+      // Navigate to home page (or dashboard if admin)
+      navigate("/");
+
+    } catch (error) {
+      console.error("GitHub login error:", {
+        code: error.code,
+        message: error.message,
+        email: error.customData?.email
+      });
+      message.error("GitHub login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -207,10 +252,11 @@ const LoginPage = () => {
                 type="default"
                 block
                 icon={<FaGithub />}
-                onClick={() => message.info("GitHub OAuth not implemented")}
+                onClick={handleLoginGithub}
+                loading={isLoading}
                 disabled={isLoading}
               >
-                GitHub
+                {isLoading ? "Signing in..." : "GitHub"}
               </Button>
             </div>
           </Form>
