@@ -21,6 +21,7 @@ import { useDispatch } from "react-redux";
 import { login } from "../../redux/accountSlice";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../../config/firebase";
+import logo from "../../assets/logo.png";
 
 const LoginPage = () => {
   const [form] = Form.useForm();
@@ -92,6 +93,15 @@ const LoginPage = () => {
       <div className="relative z-10 w-full max-w-md mx-4">
         <Card style={{ borderRadius: 16 }} bodyStyle={{ padding: 24 }}>
           <div className="text-center mb-4">
+            <img
+              src={logo}
+              alt="EV Charging Station Logo"
+              style={{
+                height: '60px',
+                width: 'auto',
+                marginBottom: '16px'
+              }}
+            />
             <h2 className="text-2xl font-bold">Welcome Back</h2>
             <p className="text-gray-500">Sign in to your account</p>
           </div>

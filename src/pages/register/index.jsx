@@ -23,6 +23,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 // If you're on AntD v5, import the base reset once in your app entry:
 // import "antd/dist/reset.css";
+import logo from "../../assets/logo.png";
 
 const { Option } = Select;
 
@@ -62,6 +63,15 @@ const RegisterPage = () => {
           bodyStyle={{ padding: 24 }}
         >
           <div className="text-center mb-4">
+            <img
+              src={logo}
+              alt="EV Charging Station Logo"
+              style={{
+                height: '60px',
+                width: 'auto',
+                marginBottom: '16px'
+              }}
+            />
             <h2 className="text-2xl font-bold">Create your account</h2>
             <p className="text-gray-500">It only takes a minute.</p>
           </div>

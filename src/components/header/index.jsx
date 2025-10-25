@@ -24,6 +24,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../redux/accountSlice';
+import logo from '../../assets/logo.png';
 
 const { Header: AntHeader } = Layout;
 const { Text } = Typography;
@@ -235,6 +236,16 @@ const Header = () => {
                         padding: '0 8px',
                         color: '#1890ff'
                     }}
+                />
+                <img
+                    src={logo}
+                    alt="EV Charging Station Logo"
+                    style={{
+                        height: '40px',
+                        width: 'auto',
+                        cursor: 'pointer'
+                    }}
+                    onClick={handleHome}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <Text strong style={{ fontSize: '18px', color: '#1890ff', lineHeight: '20px' }}>
