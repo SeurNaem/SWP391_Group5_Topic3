@@ -42,7 +42,8 @@ const RegisterPage = () => {
       toast.success("Successfully created new account!");
       navigate("/login");
       console.log(response);
-    } catch (e) {
+    } catch (error) {
+      console.error("Registration error:", error);
       message.error("Registration failed. Please try again.");
     } finally {
       setIsLoading(false);

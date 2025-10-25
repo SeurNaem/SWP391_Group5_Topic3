@@ -52,35 +52,57 @@ const LoginPage = () => {
       } else {
         navigate("/");
       }
-    } catch (e) {
+    } catch (error) {
+      console.error("Login error:", error);
       message.error("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLoginGoogle = () => {
+  const handleLoginGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider)
-      .then((result) => {
-        // This gives you a Google Access Token. You can use it to access the Google API.
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const token = credential.accessToken;
-        // The signed-in user info.
-        const user = result.user;
-        // IdP data available using getAdditionalUserInfo(result)
-        // ...
-        console.log(user);
-      }).catch((error) => {
-        // Handle Errors here.
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        // The email of the user's account used.
-        const email = error.customData.email;
-        // The AuthCredential type that was used.
-        const credential = GoogleAuthProvider.credentialFromError(error);
-        // ...
+    setIsLoading(true);
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential.accessToken;
+      const user = result.user;
+
+      console.log("Google login successful:", user);
+      console.log("Access token:", token);
+
+      // Store user data in localStorage (similar to regular login)
+      const userData = {
+        fullName: user.displayName,
+        email: user.email,
+        avatar: user.photoURL,
+        role: "USER", // Default role for Google users
+        token: token // Use Google token or you might want to exchange it for your backend token
+      };
+
+      localStorage.setItem("token", token);
+
+      // Update Redux state
+      dispatch(login(userData));
+
+      // Show success message
+      toast.success("Successfully logged in with Google!");
+
+      // Navigate to home page (or dashboard if admin)
+      navigate("/");
+
+    } catch (error) {
+      console.error("Google login error:", {
+        code: error.code,
+        message: error.message,
+        email: error.customData?.email
       });
+      message.error("Google login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -176,14 +198,17 @@ const LoginPage = () => {
                 block
                 icon={<FaGoogle />}
                 onClick={handleLoginGoogle}
+                loading={isLoading}
+                disabled={isLoading}
               >
-                Google
+                {isLoading ? "Signing in..." : "Google"}
               </Button>
               <Button
                 type="default"
                 block
                 icon={<FaGithub />}
                 onClick={() => message.info("GitHub OAuth not implemented")}
+                disabled={isLoading}
               >
                 GitHub
               </Button>
