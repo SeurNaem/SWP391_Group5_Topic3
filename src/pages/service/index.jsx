@@ -302,7 +302,7 @@ function ServicePage() {
             width: 100,
             align: 'center',
             render: (duration) => (
-                <Tag color="blue">
+                <Tag color="#4da0d6">
                     {duration} min{duration !== 1 ? 's' : ''}
                 </Tag>
             ),

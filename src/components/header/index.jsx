@@ -126,7 +126,7 @@ const Header = () => {
         {
             key: 'viewAll',
             label: (
-                <Text style={{ color: '#1890ff', textAlign: 'center', display: 'block' }}>
+                <Text style={{ color: '#4da0d6', textAlign: 'center', display: 'block' }}>
                     View All Notifications
                 </Text>
             ),
@@ -169,7 +169,7 @@ const Header = () => {
                             <Avatar
                                 size="small"
                                 icon={<UserOutlined />}
-                                style={{ backgroundColor: '#1890ff' }}
+                                style={{ backgroundColor: '#4da0d6' }}
                                 src={user.avatar} // If user has avatar image
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -234,7 +234,7 @@ const Header = () => {
                         fontSize: '18px',
                         height: '40px',
                         padding: '0 8px',
-                        color: '#1890ff'
+                        color: '#4da0d6'
                     }}
                 />
                 <img
@@ -248,7 +248,7 @@ const Header = () => {
                     onClick={handleHome}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <Text strong style={{ fontSize: '18px', color: '#1890ff', lineHeight: '20px' }}>
+                    <Text strong style={{ fontSize: '18px', color: '#4da0d6', lineHeight: '20px' }}>
                         EV Charging Station
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px', lineHeight: '14px' }}>

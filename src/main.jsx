@@ -4,11 +4,15 @@ import "./index.css";
 import { Provider } from "react-redux";
 import { store, persistor } from "./redux/store";
 import { PersistGate } from "redux-persist/integration/react";
+import { ConfigProvider } from "antd";
+import { antdTheme } from "./utils/theme";
 
 createRoot(document.getElementById("root")).render(
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
-      <App />
+      <ConfigProvider theme={antdTheme}>
+        <App />
+      </ConfigProvider>
     </PersistGate>
   </Provider>
 );

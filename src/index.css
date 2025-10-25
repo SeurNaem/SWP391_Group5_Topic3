@@ -1,5 +1,111 @@
 @import "tailwindcss";
 
+/* Theme Variables */
+:root {
+    --primary-color: #4da0d6;
+    --primary-hover: #3b8bc6;
+    --primary-light: #6bb2df;
+    --primary-dark: #357ba8;
+    --primary-bg-light: rgba(77, 160, 214, 0.1);
+    --primary-bg-lighter: rgba(77, 160, 214, 0.05);
+}
+
+/* Map Styles */
 #map {
     height: 180px;
+}
+
+/* Custom Theme Styles */
+.theme-primary {
+    color: var(--primary-color) !important;
+}
+
+.theme-bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+.theme-bg-light {
+    background-color: var(--primary-bg-light) !important;
+}
+
+.theme-border-primary {
+    border-color: var(--primary-color) !important;
+}
+
+/* Gradient backgrounds with theme color */
+.theme-gradient {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+}
+
+.theme-gradient-light {
+    background: linear-gradient(135deg, var(--primary-bg-lighter), var(--primary-bg-light));
+}
+
+/* Override Tailwind blue colors with theme color */
+.text-blue-600 {
+    color: var(--primary-color) !important;
+}
+
+.text-blue-500 {
+    color: var(--primary-hover) !important;
+}
+
+.hover\:text-blue-500:hover {
+    color: var(--primary-hover) !important;
+}
+
+/* Ant Design overrides */
+.ant-btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.ant-btn-primary:hover {
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}
+
+.ant-btn-primary:focus {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.ant-btn-primary:active {
+    background-color: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+}
+
+/* Link styling */
+.ant-btn-link {
+    color: var(--primary-color) !important;
+}
+
+.ant-btn-link:hover {
+    color: var(--primary-hover) !important;
+}
+
+/* Input focus colors */
+.ant-input:focus,
+.ant-input-password:focus,
+.ant-select-focused .ant-select-selector {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px var(--primary-bg-light) !important;
+}
+
+/* Checkbox and radio colors */
+.ant-checkbox-checked .ant-checkbox-inner,
+.ant-radio-checked .ant-radio-inner {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Card hover effects with theme */
+.theme-card-hover {
+    transition: all 0.3s ease;
+    border: 1px solid #f0f0f0;
+}
+
+.theme-card-hover:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px var(--primary-bg-light);
 }

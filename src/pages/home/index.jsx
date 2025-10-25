@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
+import { themeColors } from "../../utils/theme";
 
 const EbikeHomePage = () => {
   const account = useSelector((store) => store.account);
@@ -93,7 +94,7 @@ const EbikeHomePage = () => {
       width: '2.5rem',
       height: '2.5rem',
       borderRadius: '50%',
-      border: '2px solid #10B981',
+      border: `2px solid ${themeColors.primary}`,
       objectFit: 'cover'
     },
     dropdown: {
@@ -137,8 +138,8 @@ const EbikeHomePage = () => {
       color: '#D1D5DB'
     },
     registerButton: {
-      backgroundColor: '#10B981',
-      borderColor: '#10B981',
+      backgroundColor: themeColors.primary,
+      borderColor: themeColors.primary,
       color: '#ffffff'
     },
     heroSection: {
@@ -188,22 +189,22 @@ const EbikeHomePage = () => {
       justifyContent: 'center'
     },
     primaryButton: {
-      backgroundColor: '#10B981',
-      color: '#000000',
+      backgroundColor: themeColors.primary,
+      color: '#ffffff',
       fontWeight: '600',
       padding: '1rem 2.5rem',
       borderRadius: '9999px',
       textDecoration: 'none',
       transition: 'all 0.3s ease',
       fontSize: '1.125rem',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      boxShadow: '0 4px 12px rgba(77, 160, 214, 0.2)',
       border: 'none',
       cursor: 'pointer'
     },
     secondaryButton: {
       backgroundColor: 'transparent',
-      border: '2px solid #10B981',
-      color: '#10B981',
+      border: `2px solid ${themeColors.primary}`,
+      color: themeColors.primary,
       fontWeight: '600',
       padding: '1rem 2rem',
       borderRadius: '9999px',
@@ -215,7 +216,7 @@ const EbikeHomePage = () => {
       gap: '0.5rem'
     },
     mapButton: {
-      backgroundColor: '#2563EB',
+      backgroundColor: themeColors.primary,
       color: '#ffffff',
       fontWeight: '600',
       padding: '1.25rem 3rem',
@@ -226,7 +227,7 @@ const EbikeHomePage = () => {
       display: 'flex',
       alignItems: 'center',
       gap: '0.75rem',
-      boxShadow: '0 8px 16px rgba(37, 99, 235, 0.3)',
+      boxShadow: '0 4px 12px rgba(77, 160, 214, 0.2)',
       transform: 'scale(1)',
       border: 'none'
     },
@@ -295,13 +296,63 @@ const EbikeHomePage = () => {
         <div style={styles.logo}>VOLT</div>
 
         <nav style={styles.nav}>
-          <a href="#models" style={styles.navLink}>Models</a>
-          <a href="#features" style={styles.navLink}>Features</a>
-          <Link to="/map" style={styles.navLink}>
+          <a
+            href="#models"
+            style={styles.navLink}
+            onMouseEnter={(e) => {
+              e.target.style.color = themeColors.primary;
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = '#ffffff';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            Models
+          </a>
+          <a
+            href="#features"
+            style={styles.navLink}
+            onMouseEnter={(e) => {
+              e.target.style.color = themeColors.primary;
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = '#ffffff';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            Features
+          </a>
+          <Link
+            to="/map"
+            style={styles.navLink}
+            onMouseEnter={(e) => {
+              e.target.style.color = themeColors.primary;
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = '#ffffff';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
             <FiMapPin size={16} />
             Find Stations
           </Link>
-          <a href="#contact" style={styles.navLink}>Contact</a>
+          <a
+            href="#contact"
+            style={styles.navLink}
+            onMouseEnter={(e) => {
+              e.target.style.color = themeColors.primary;
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = '#ffffff';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            Contact
+          </a>
         </nav>
 
         {/* --- AUTH SECTION --- */}
@@ -325,14 +376,49 @@ const EbikeHomePage = () => {
 
               {isDropdownOpen && (
                 <div style={styles.dropdown}>
-                  <a href="#" style={styles.dropdownItem}>
+                  <a
+                    href="#"
+                    style={styles.dropdownItem}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#374151';
+                      e.target.style.transform = 'translateX(4px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.transform = 'translateX(0)';
+                    }}
+                  >
                     <FiUser /> My Profile
                   </a>
-                  <a href="#" style={styles.dropdownItem}>
+                  <a
+                    href="#"
+                    style={styles.dropdownItem}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#374151';
+                      e.target.style.transform = 'translateX(4px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.transform = 'translateX(0)';
+                    }}
+                  >
                     <FiShoppingCart /> Order History
                   </a>
                   <div style={{ borderTop: '1px solid #374151', margin: '0.5rem 0' }}></div>
-                  <button onClick={handleLogout} style={{ ...styles.dropdownItem, color: '#F87171' }}>
+                  <button
+                    onClick={handleLogout}
+                    style={{ ...styles.dropdownItem, color: '#F87171' }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#7F1D1D';
+                      e.target.style.transform = 'translateX(4px)';
+                      e.target.style.color = '#FECACA';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.transform = 'translateX(0)';
+                      e.target.style.color = '#F87171';
+                    }}
+                  >
                     <FiLogOut /> Logout
                   </button>
                 </div>
@@ -340,10 +426,32 @@ const EbikeHomePage = () => {
             </div>
           ) : (
             <div style={styles.authSection}>
-              <Link to="/login" style={{ ...styles.authButton, ...styles.loginButton }}>
+              <Link
+                to="/login"
+                style={{ ...styles.authButton, ...styles.loginButton }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.backgroundColor = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.backgroundColor = 'transparent';
+                }}
+              >
                 Login
               </Link>
-              <Link to="/register" style={{ ...styles.authButton, ...styles.registerButton }}>
+              <Link
+                to="/register"
+                style={{ ...styles.authButton, ...styles.registerButton }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.backgroundColor = themeColors.primaryHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.backgroundColor = themeColors.primary;
+                }}
+              >
                 Register
               </Link>
             </div>
@@ -361,10 +469,35 @@ const EbikeHomePage = () => {
             Unleash unparalleled performance and iconic design. Welcome to the electric revolution.
           </p>
           <div style={{ ...styles.heroButtons, '@media (min-width: 640px)': { flexDirection: 'row' } }}>
-            <button style={styles.primaryButton}>
+            <button
+              style={styles.primaryButton}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-3px)';
+                e.target.style.backgroundColor = themeColors.primaryHover;
+                e.target.style.boxShadow = '0 8px 20px rgba(77, 160, 214, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.backgroundColor = themeColors.primary;
+                e.target.style.boxShadow = '0 4px 12px rgba(77, 160, 214, 0.2)';
+              }}
+            >
               Discover Our Bikes
             </button>
-            <Link to="/map" style={styles.mapButton}>
+            <Link
+              to="/map"
+              style={styles.mapButton}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-3px)';
+                e.target.style.backgroundColor = themeColors.primaryHover;
+                e.target.style.boxShadow = '0 8px 20px rgba(77, 160, 214, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.backgroundColor = themeColors.primary;
+                e.target.style.boxShadow = '0 4px 12px rgba(77, 160, 214, 0.2)';
+              }}
+            >
               <FiMapPin size={20} />
               Find Charging Stations
             </Link>
@@ -401,18 +534,42 @@ const EbikeHomePage = () => {
           ].map((feature, index) => (
             <div key={index} style={styles.featureCard}>
               <div style={styles.featureIcon}>
-                <feature.icon size={32} color="#10B981" />
+                <feature.icon size={32} color={themeColors.primary} />
               </div>
               <h3 style={styles.featureTitle}>{feature.title}</h3>
               <p style={styles.featureText}>{feature.text}</p>
               {feature.isMapButton && (
-                <Link to="/map" style={{
-                  ...styles.secondaryButton,
-                  backgroundColor: '#10B981',
-                  color: '#000000',
-                  borderColor: '#10B981'
-                }}>
-                  <FiMapPin size={16} />
+                <Link
+                  to="/map"
+                  style={{
+                    backgroundColor: themeColors.primary,
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: '600',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '9999px',
+                    textDecoration: 'none',
+                    transition: 'all 0.3s ease',
+                    fontSize: '0.875rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginTop: '1rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(77, 160, 214, 0.2)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.backgroundColor = themeColors.primaryHover;
+                    e.target.style.boxShadow = '0 6px 16px rgba(77, 160, 214, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.backgroundColor = themeColors.primary;
+                    e.target.style.boxShadow = '0 2px 8px rgba(77, 160, 214, 0.2)';
+                  }}
+                >
+                  <FiMapPin size={14} />
                   Open Map
                 </Link>
               )}

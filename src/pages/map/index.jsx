@@ -141,7 +141,7 @@ const MapPage = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <Title level={2} style={{ margin: 0 }}>
-                                    <EnvironmentOutlined style={{ marginRight: 12, color: '#1890ff' }} />
+                                    <EnvironmentOutlined style={{ marginRight: 12, color: '#4da0d6' }} />
                                     EV Charging Station Map
                                 </Title>
                                 <Text type="secondary">

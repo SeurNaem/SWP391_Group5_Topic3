@@ -287,7 +287,7 @@ const RegisterPage = () => {
 
             <div className="text-center text-sm text-gray-600">
               Already have an account?{" "}
-              <a href="/login" className="text-blue-600 hover:text-blue-500">
+              <a href="/login" className="theme-primary hover:opacity-80">
                 Sign in
               </a>
             </div>
