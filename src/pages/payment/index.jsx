@@ -21,10 +21,11 @@ import {
     WalletOutlined,
     CheckCircleOutlined,
     DollarOutlined,
-    ThunderboltOutlined
+    ThunderboltOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchWallets } from '../../service/wallet.api';
+import { fetchWallets, deductFromWallet } from '../../service/wallet.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -104,11 +105,39 @@ const PaymentPage = () => {
         try {
             setLoading(true);
 
-            // Simulate payment processing
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Validate wallet balance if using wallet payment
+            if (paymentMethod === 'wallet') {
+                if (!walletData) {
+                    message.error('Wallet data not loaded. Please try again.');
+                    return;
+                }
 
-            // Here you would integrate with actual payment API
-            message.success('Payment successful! Your charging session has been reserved.');
+                if (walletData.balance < estimatedCost) {
+                    message.error('Insufficient wallet balance. Please top up your wallet or use a different payment method.');
+                    return;
+                }
+
+                // Deduct from wallet
+                const deductionResponse = await deductFromWallet(walletData.walletId, estimatedCost);
+
+                if (deductionResponse.status === 200) {
+                    // Update wallet balance locally to reflect the change immediately
+                    setWalletData(prev => ({
+                        ...prev,
+                        balance: prev.balance - estimatedCost
+                    }));
+
+                    message.success(`Payment of $${estimatedCost.toFixed(2)} deducted from wallet successfully!`);
+                } else {
+                    throw new Error('Wallet deduction failed');
+                }
+            } else {
+                // Simulate card payment processing
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                message.success('Payment processed successfully!');
+            }
+
+            message.success('Your charging session has been reserved.');
             setCurrentStep(2);
 
             // Redirect to map after successful payment
@@ -116,14 +145,22 @@ const PaymentPage = () => {
                 navigate('/map', {
                     state: {
                         paymentSuccess: true,
-                        reservedStation: stationData
+                        reservedStation: stationData,
+                        paymentMethod: paymentMethod,
+                        amountPaid: estimatedCost
                     }
                 });
             }, 3000);
 
         } catch (error) {
             console.error('Payment error:', error);
-            message.error('Payment failed. Please try again.');
+            if (error.response?.status === 400) {
+                message.error('Payment failed: Invalid wallet or insufficient funds.');
+            } else if (error.response?.status === 401) {
+                message.error('Payment failed: Authentication required.');
+            } else {
+                message.error('Payment failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -259,12 +296,54 @@ const PaymentPage = () => {
                                     </Form.Item>
 
                                     {paymentMethod === 'wallet' && walletData && (
-                                        <Alert
-                                            message={`Wallet Balance: $${walletData.balance || '0.00'}`}
-                                            type={walletData.balance >= estimatedCost ? 'success' : 'warning'}
-                                            showIcon
-                                            style={{ marginBottom: '16px' }}
-                                        />
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <Alert
+                                                message={
+                                                    <div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <div>
+                                                                <Text strong>Current Wallet Balance: </Text>
+                                                                <Text style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                                                                    ${walletData.balance?.toFixed(2) || '0.00'}
+                                                                </Text>
+                                                            </div>
+                                                            <Button
+                                                                size="small"
+                                                                icon={<ReloadOutlined />}
+                                                                onClick={fetchWalletData}
+                                                                loading={loading}
+                                                                title="Refresh wallet balance"
+                                                            >
+                                                                Refresh
+                                                            </Button>
+                                                        </div>
+                                                        <div style={{ marginTop: '8px' }}>
+                                                            <Text>Payment Amount: ${estimatedCost.toFixed(2)}</Text>
+                                                        </div>
+                                                        <div>
+                                                            <Text strong>Balance After Payment: </Text>
+                                                            <Text style={{
+                                                                color: (walletData.balance - estimatedCost) >= 0 ? '#52c41a' : '#ff4d4f',
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                ${(walletData.balance - estimatedCost).toFixed(2)}
+                                                            </Text>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                type={walletData.balance >= estimatedCost ? 'success' : 'warning'}
+                                                showIcon
+                                            />
+                                            {walletData.balance < estimatedCost && (
+                                                <Alert
+                                                    message="Insufficient Balance"
+                                                    description={`You need $${(estimatedCost - walletData.balance).toFixed(2)} more to complete this payment.`}
+                                                    type="error"
+                                                    showIcon
+                                                    style={{ marginTop: '8px' }}
+                                                />
+                                            )}
+                                        </div>
                                     )}
                                 </Form>
 
@@ -296,6 +375,48 @@ const PaymentPage = () => {
                                 <Paragraph>
                                     Your charging session has been reserved. You will be redirected to the map shortly.
                                 </Paragraph>
+
+                                {/* Payment Summary */}
+                                <Card
+                                    title="Payment Summary"
+                                    style={{
+                                        marginTop: '24px',
+                                        textAlign: 'left',
+                                        maxWidth: '400px',
+                                        margin: '24px auto 0'
+                                    }}
+                                >
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Payment Method: </Text>
+                                        <Text>
+                                            {paymentMethod === 'wallet' ? (
+                                                <>
+                                                    <WalletOutlined style={{ marginRight: '4px' }} />
+                                                    Digital Wallet
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CreditCardOutlined style={{ marginRight: '4px' }} />
+                                                    Credit/Debit Card
+                                                </>
+                                            )}
+                                        </Text>
+                                    </div>
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Amount Paid: </Text>
+                                        <Text style={{ color: '#52c41a', fontWeight: 'bold' }}>
+                                            ${estimatedCost.toFixed(2)}
+                                        </Text>
+                                    </div>
+                                    {paymentMethod === 'wallet' && walletData && (
+                                        <div>
+                                            <Text strong>Remaining Wallet Balance: </Text>
+                                            <Text style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                                ${walletData.balance?.toFixed(2) || '0.00'}
+                                            </Text>
+                                        </div>
+                                    )}
+                                </Card>
                             </div>
                         )}
                     </Card>

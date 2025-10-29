@@ -11,3 +11,12 @@ export const fetchWalletById = async (id) => {
     // Implementation of fetch wallet by id function
     return await api.get(`${API}/${id}`);
 };
+
+export const deductFromWallet = async (walletId, amount) => {
+    // Implementation of wallet deduction function
+    const deductRequest = {
+        walletId: walletId,
+        amount: amount
+    };
+    return await api.post(`${API}/Deduct`, deductRequest);
+};
