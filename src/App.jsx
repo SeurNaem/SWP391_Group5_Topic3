@@ -14,6 +14,7 @@ import ManageVoucher from "./pages/voucher";
 import ManageStore from "./pages/store";
 import ServicePage from "./pages/service";
 import MapPage from "./pages/map";
+import PaymentPage from "./pages/payment";
 
 // 1. Component
 // là 1 cái function
@@ -70,6 +71,10 @@ function App() {
     {
       path: "/map",
       element: <MapPage />,
+    },
+    {
+      path: "/payment",
+      element: <PaymentPage />,
     },
   ]);
 

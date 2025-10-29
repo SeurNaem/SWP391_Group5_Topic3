@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Space, Typography, message } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import MapComponent from '../../components/map';
-import ChargingStationList from '../../components/ChargingStationList';
+import ChargingStationList from '../../components/chargingstation-list';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStations } from '../../redux/slices/stationSlice';
 
 const { Title, Text } = Typography;
 
 const MapPage = () => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [selectedStation, setSelectedStation] = useState(null);
@@ -195,6 +196,16 @@ const MapPage = () => {
                                         onClick={() => getDirections(selectedStation)}
                                     >
                                         Get Directions
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
+                                        onClick={() => {
+                                            // Navigate to payment page with station data
+                                            navigate('/payment', { state: { station: selectedStation } });
+                                        }}
+                                    >
+                                        Reserve Station
                                     </Button>
                                     <Button onClick={() => setSelectedStation(null)}>
                                         Close Details
