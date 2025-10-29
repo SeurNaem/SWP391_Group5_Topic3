@@ -6,20 +6,82 @@ export const fetchStations = createAsyncThunk(
     'stations/fetchStations',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await api.get('stations');
-            return response.data;
+            // Use new backend endpoint for charging stations
+            const response = await api.get('ChargingStation');
+
+            // Map backend response to frontend format
+            const mappedStations = response.data.map(station => ({
+                id: station.stationId,
+                title: station.name,
+                lat: station.latitude,
+                lng: station.longitude,
+                address: station.address,
+                status: mapStatus(station.status),
+                type: 'charging-station',
+                description: `Rating: ${station.rating}/5`,
+                // Add default values for fields expected by frontend
+                chargerTypes: station.chargingPoints?.map(point => point.type) || ['Type 2', 'CCS'],
+                power: station.totalPoints ? `${station.totalPoints * 22}kW` : '22kW',
+                price: '3,500 VND/kWh', // Default price - update when backend provides this
+                imageUrl: station.imageUrl,
+                rating: station.rating,
+                openHours: station.openHours,
+                chargingPoints: station.chargingPoints || []
+            }));
+
+            return mappedStations;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
         }
     }
 );
 
+// Helper function to map backend status to frontend status
+const mapStatus = (backendStatus) => {
+    const statusMap = {
+        'online': 'Available',
+        'offline': 'Maintenance',
+        'busy': 'Occupied'
+    };
+    return statusMap[backendStatus] || 'Available';
+};
+
 export const createStation = createAsyncThunk(
     'stations/createStation',
     async (stationData, { rejectWithValue }) => {
         try {
-            const response = await api.post('stations', stationData);
-            return response.data;
+            // Map frontend data to backend format
+            const backendData = {
+                name: stationData.title || stationData.name,
+                latitude: stationData.lat || stationData.latitude,
+                longitude: stationData.lng || stationData.longitude,
+                address: stationData.address,
+                status: stationData.status === 'Available' ? 'online' : 'offline',
+                rating: stationData.rating || 0,
+                imageUrl: stationData.imageUrl
+            };
+
+            const response = await api.post('ChargingStation', backendData);
+
+            // Map response back to frontend format
+            const station = response.data;
+            return {
+                id: station.stationId,
+                title: station.name,
+                lat: station.latitude,
+                lng: station.longitude,
+                address: station.address,
+                status: mapStatus(station.status),
+                type: 'charging-station',
+                description: `Rating: ${station.rating}/5`,
+                chargerTypes: ['Type 2', 'CCS'],
+                power: '22kW',
+                price: '3,500 VND/kWh',
+                imageUrl: station.imageUrl,
+                rating: station.rating,
+                openHours: station.openHours,
+                chargingPoints: station.chargingPoints || []
+            };
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
         }
@@ -30,8 +92,38 @@ export const updateStation = createAsyncThunk(
     'stations/updateStation',
     async ({ id, ...stationData }, { rejectWithValue }) => {
         try {
-            const response = await api.put(`stations/${id}`, stationData);
-            return response.data;
+            // Map frontend data to backend format
+            const backendData = {
+                name: stationData.title || stationData.name,
+                latitude: stationData.lat || stationData.latitude,
+                longitude: stationData.lng || stationData.longitude,
+                address: stationData.address,
+                status: stationData.status === 'Available' ? 'online' : 'offline',
+                rating: stationData.rating || 0,
+                imageUrl: stationData.imageUrl
+            };
+
+            const response = await api.put(`ChargingStation/${id}`, backendData);
+
+            // Map response back to frontend format
+            const station = response.data;
+            return {
+                id: station.stationId,
+                title: station.name,
+                lat: station.latitude,
+                lng: station.longitude,
+                address: station.address,
+                status: mapStatus(station.status),
+                type: 'charging-station',
+                description: `Rating: ${station.rating}/5`,
+                chargerTypes: ['Type 2', 'CCS'],
+                power: '22kW',
+                price: '3,500 VND/kWh',
+                imageUrl: station.imageUrl,
+                rating: station.rating,
+                openHours: station.openHours,
+                chargingPoints: station.chargingPoints || []
+            };
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);
         }
@@ -42,7 +134,7 @@ export const deleteStation = createAsyncThunk(
     'stations/deleteStation',
     async (id, { rejectWithValue }) => {
         try {
-            await api.delete(`stations/${id}`);
+            await api.delete(`ChargingStation/${id}`);
             return id;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);

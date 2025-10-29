@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Space, Typography, message } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import MapComponent from '../../components/map';
 import ChargingStationList from '../../components/ChargingStationList';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchStations } from '../../redux/slices/stationSlice';
 
 const { Title, Text } = Typography;
 
@@ -14,74 +16,12 @@ const MapPage = () => {
     const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Ho Chi Minh City
     const [mapZoom, setMapZoom] = useState(13);
 
-    // Sample EV charging stations data - in real app, this would come from API
-    const chargingStations = [
-        {
-            id: 1,
-            title: "VinFast Charging Station - District 1",
-            description: "Fast charging station with multiple connectors",
-            lat: 10.7769,
-            lng: 106.7009,
-            address: "123 Nguyen Hue Street, District 1, Ho Chi Minh City",
-            status: "Available",
-            type: "charging-station",
-            chargerTypes: ["CCS", "CHAdeMO", "Type 2"],
-            power: "50kW",
-            price: "5,000 VND/kWh"
-        },
-        {
-            id: 2,
-            title: "EVN Charging Hub - District 3",
-            description: "Public charging station near shopping center",
-            lat: 10.7830,
-            lng: 106.6950,
-            address: "456 Le Van Sy Street, District 3, Ho Chi Minh City",
-            status: "Occupied",
-            type: "charging-station",
-            chargerTypes: ["Type 2", "CCS"],
-            power: "22kW",
-            price: "3,500 VND/kWh"
-        },
-        {
-            id: 3,
-            title: "Green Energy Station - District 7",
-            description: "Solar-powered charging station",
-            lat: 10.7309,
-            lng: 106.7182,
-            address: "789 Nguyen Thi Thap Street, District 7, Ho Chi Minh City",
-            status: "Available",
-            type: "charging-station",
-            chargerTypes: ["CCS", "Type 2"],
-            power: "75kW",
-            price: "4,200 VND/kWh"
-        },
-        {
-            id: 4,
-            title: "EV Charge Point - Binh Thanh",
-            description: "24/7 charging facility",
-            lat: 10.8014,
-            lng: 106.7109,
-            address: "321 Xo Viet Nghe Tinh Street, Binh Thanh District",
-            status: "Available",
-            type: "charging-station",
-            chargerTypes: ["CHAdeMO", "CCS"],
-            power: "100kW",
-            price: "6,000 VND/kWh"
-        },
-        {
-            id: 5,
-            title: "Smart Charge Station - Tan Binh",
-            description: "AI-powered charging management",
-            lat: 10.8006,
-            lng: 106.6533,
-            address: "654 Cong Hoa Street, Tan Binh District",
-            status: "Maintenance",
-            type: "charging-station",
-            chargerTypes: ["Type 2"],
-            power: "22kW",
-            price: "3,800 VND/kWh"
-        }
-    ];
+    const dispatch = useDispatch();
+    const { stations: chargingStations } = useSelector(state => state.stations || { stations: [] });
+
+    useEffect(() => {
+        dispatch(fetchStations());
+    }, [dispatch]);
 
     // Note: Station filtering is now handled by ChargingStationList component
 
@@ -103,10 +43,10 @@ const MapPage = () => {
     const refreshStations = async () => {
         setLoading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await dispatch(fetchStations()).unwrap();
             message.success('Charging stations updated successfully');
-        } catch {
+        } catch (err) {
+            console.error(err);
             message.error('Failed to refresh stations');
         } finally {
             setLoading(false);

@@ -8,19 +8,43 @@ const ManageStation = () => {
 
   const columns = [
     {
+      title: 'Station ID',
+      dataIndex: 'stationId',
+      key: 'stationId',
+    },
+    {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
+      title: 'Address',
+      dataIndex: 'address',
+      key: 'address',
     },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <span style={{
+          color: status === 'online' ? '#52c41a' : '#ff4d4f',
+          fontWeight: 'bold'
+        }}>
+          {status === 'online' ? 'Online' : 'Offline'}
+        </span>
+      )
+    },
+    {
+      title: 'Rating',
+      dataIndex: 'rating',
+      key: 'rating',
+      render: (rating) => rating ? `${rating}/5` : 'N/A'
+    }
   ];
 
   const fetchStation = async () => {
-    const response = await api.get('stations');
+    const response = await api.get('ChargingStation');
     console.log(response.data);
     setStations(response.data);
   };
