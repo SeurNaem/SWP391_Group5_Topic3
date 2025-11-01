@@ -1,7 +1,7 @@
 // jsx
 // phối hợp JS & HTML 1 cách dễ dàng
 
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import Dashboard from "./components/dashboard";
 import ManageBike from "./pages/bike";
 import ManageCategory from "./pages/category";
@@ -15,6 +15,19 @@ import ManageStore from "./pages/store";
 import ServicePage from "./pages/service";
 import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
+import { useSelector } from "react-redux";
+
+// Component to handle admin redirect on home page
+function HomePage() {
+  const account = useSelector((state) => state.account);
+
+  // If user is logged in as admin, redirect to dashboard
+  if (account?.user?.role === "Admin") {
+    return <Navigate to="/dashboard/category" replace />;
+  }
+
+  return <EbikeHomePage />;
+}
 
 // 1. Component
 // là 1 cái function
@@ -25,7 +38,7 @@ function App() {
     {
       path: "/dashboard",
       element: (
-        <ProtectedRoute role={"ADMIN"}>
+        <ProtectedRoute role={"Admin"}>
           <Dashboard />
         </ProtectedRoute>
       ),
@@ -58,7 +71,7 @@ function App() {
     },
     {
       path: "/",
-      element: <EbikeHomePage />,
+      element: <HomePage />,
     },
     {
       path: "/login",

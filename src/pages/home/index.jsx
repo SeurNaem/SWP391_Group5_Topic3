@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import {
   FiBatteryCharging,
-  FiFeather,
   FiMapPin,
   FiZap,
   FiUser,
   FiLogOut,
   FiShoppingCart,
+  FiTarget,
+  FiSearch,
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
 import { themeColors } from "../../utils/theme";
+import evImage from "../../assets/ev.png";
+import blankAvatar from "../../assets/blank.png";
 
 const EbikeHomePage = () => {
   const account = useSelector((store) => store.account);
@@ -21,8 +24,8 @@ const EbikeHomePage = () => {
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
 
   const user = {
-    name: "Alex Reid",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=2080",
+    name: "user",
+    avatar: blankAvatar,
   };
 
   // Function to handle navigation with authentication check
@@ -187,9 +190,9 @@ const EbikeHomePage = () => {
     heroBackground: {
       position: 'absolute',
       inset: 0,
-      backgroundImage: `url('https://images.unsplash.com/photo-1620802051782-725fa33db067?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
+      backgroundImage: `url(${evImage})`,
+      backgroundSize: '120% auto',
+      backgroundPosition: 'left center',
       backgroundRepeat: 'no-repeat'
     },
     heroOverlay: {
@@ -323,9 +326,28 @@ const EbikeHomePage = () => {
 
   return (
     <div style={styles.container}>
+      {/* Add CSS animation keyframes */}
+      <style>
+        {`
+          @keyframes slideLeftToRight {
+            0% {
+              background-position: left center;
+            }
+            100% {
+              background-position: right center;
+            }
+          }
+          
+          .hero-background-animated {
+            background-size: 120% auto !important;
+            animation: slideLeftToRight 12s ease-in-out infinite alternate;
+          }
+        `}
+      </style>
+
       {/* --- HEADER --- */}
       <header style={styles.header}>
-        <div style={styles.logo}>VOLT</div>
+        <div style={styles.logo}>WARP</div>
 
         <nav style={styles.nav}>
           <a
@@ -516,29 +538,14 @@ const EbikeHomePage = () => {
 
       {/* --- Hero Section --- */}
       <section style={styles.heroSection}>
-        <div style={styles.heroBackground}></div>
+        <div style={styles.heroBackground} className="hero-background-animated"></div>
         <div style={styles.heroOverlay}></div>
         <div style={styles.heroContent}>
-          <h1 style={styles.heroTitle}>Ride the Future.</h1>
+          <h1 style={styles.heroTitle}>Instant Tracking</h1>
           <p style={styles.heroSubtitle}>
-            Unleash unparalleled performance and iconic design. Welcome to the electric revolution.
+            Find your desired charging stations in no time.
           </p>
           <div style={{ ...styles.heroButtons, '@media (min-width: 640px)': { flexDirection: 'row' } }}>
-            <button
-              style={styles.primaryButton}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.backgroundColor = themeColors.primaryHover;
-                e.target.style.boxShadow = '0 8px 20px rgba(77, 160, 214, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.backgroundColor = themeColors.primary;
-                e.target.style.boxShadow = '0 4px 12px rgba(77, 160, 214, 0.2)';
-              }}
-            >
-              Discover Our Bikes
-            </button>
             <button
               onClick={() => handleAuthenticatedNavigation('/map')}
               style={styles.mapButton}
@@ -562,29 +569,24 @@ const EbikeHomePage = () => {
 
       {/* --- Features Section --- */}
       <section style={styles.featuresSection} id="features">
-        <h2 style={styles.featuresTitle}>Why VOLT?</h2>
+        <h2 style={styles.featuresTitle}>Why WARP?</h2>
         <div style={styles.featuresGrid}>
           {[
             {
-              icon: FiBatteryCharging,
-              title: "Extended Range",
-              text: "Journey up to 70 miles on a single charge, pushing the boundaries of exploration.",
+              icon: FiTarget,
+              title: "Far-Ranged",
+              text: "Locate all charging stations in 100 miles.",
             },
             {
-              icon: FiFeather,
-              title: "Featherlight Frame",
-              text: "Crafted from aerospace-grade aluminum for an agile and responsive ride.",
+              icon: FiSearch,
+              title: "Easy Tracking",
+              text: "Help you track charging stations in less than 1 minute.",
             },
             {
               icon: FiMapPin,
-              title: "Find Charging Stations",
-              text: "Discover nearby charging stations with our interactive map. Never worry about running out of power.",
+              title: "Find your stations now",
+              text: "Never worry about running out of power.",
               isMapButton: true,
-            },
-            {
-              icon: FiZap,
-              title: "Instant Power",
-              text: "Experience exhilarating acceleration with our fine-tuned silent motor.",
             },
           ].map((feature, index) => (
             <div key={index} style={styles.featureCard}>
@@ -635,7 +637,7 @@ const EbikeHomePage = () => {
 
       {/* --- Footer --- */}
       <footer style={styles.footer}>
-        <div style={styles.footerLogo}>VOLT</div>
+        <div style={styles.footerLogo}>WARP</div>
         <p style={styles.footerText}>
           Powering the future of urban mobility.
         </p>

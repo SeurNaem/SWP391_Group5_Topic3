@@ -51,10 +51,12 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative">
-      {/* Background */}
-      <div className="absolute inset-0 z-0 bg-[url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center bg-no-repeat">
-        <div className="absolute inset-0 bg-black/50"></div>
+    <div className="min-h-screen flex items-center justify-center relative" style={{
+      background: 'radial-gradient(circle at center, #87ceeb 0%, #4fc3f7 50%, #29b6f6 100%)'
+    }}>
+      {/* Cool Sky Blue Radiant Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-200/30 via-sky-300/40 to-sky-400/50"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-xl mx-4">

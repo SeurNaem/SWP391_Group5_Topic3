@@ -38,20 +38,47 @@ const LoginPage = () => {
   const onFinish = async (values) => {
     setIsLoading(true);
     try {
+      // Clear any existing persisted data first
+      localStorage.clear();
+
       const response = await api.post("Auth/login", values);
       toast.success("Successfully logged in!");
       console.log(response);
       const { token, role } = response.data;
       localStorage.setItem("token", token);
 
-      // lưu state
-      dispatch(login(response.data));
+      // Convert role to proper case format (Admin instead of ADMIN)
+      const formattedRole = role === "ADMIN" ? "Admin" : role;
 
-      if (role === "ADMIN") {
-        navigate("/dashboard");
-      } else {
-        navigate("/");
-      }
+      // Update response data with formatted role
+      const userData = {
+        ...response.data,
+        role: formattedRole
+      };
+
+      // Enhanced debug logging
+      console.log("=== Login Debug ===");
+      console.log("Original API response:", response.data);
+      console.log("Original role from API:", role);
+      console.log("Formatted role:", formattedRole);
+      console.log("Final userData being dispatched:", userData);
+      console.log("==================");
+
+      // lưu state
+      dispatch(login(userData));
+
+      // Add a small delay to ensure Redux state is updated
+      setTimeout(() => {
+        console.log("After dispatch - checking Redux state...");
+
+        if (formattedRole === "Admin") {
+          console.log("Navigating to dashboard for Admin role");
+          navigate("/dashboard");
+        } else {
+          console.log("Navigating to home for non-admin role");
+          navigate("/");
+        }
+      }, 100);
     } catch (error) {
       console.error("Login error:", error);
       message.error("Login failed. Please try again.");
@@ -151,10 +178,12 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative">
-      {/* Background */}
-      <div className="absolute inset-0 z-0 bg-[url('https://images.unsplash.com/photo-1571068316344-75bc76f77890?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')] bg-cover bg-center bg-no-repeat">
-        <div className="absolute inset-0 bg-black/50"></div>
+    <div className="min-h-screen flex items-center justify-center relative" style={{
+      background: 'radial-gradient(circle at center, #87ceeb 0%, #4fc3f7 50%, #29b6f6 100%)'
+    }}>
+      {/* Cool Sky Blue Radiant Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-200/30 via-sky-300/40 to-sky-400/50"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
