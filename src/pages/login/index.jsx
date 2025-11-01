@@ -41,6 +41,41 @@ const LoginPage = () => {
       // Clear any existing persisted data first
       localStorage.clear();
 
+      // Check for built-in admin account
+      if (values.email === "admin@example.com" && values.password === "admin1234") {
+        // Built-in admin account
+        const adminUserData = {
+          token: "admin-built-in-token-" + Date.now(), // Generate a unique token
+          role: "Admin",
+          user: {
+            id: "admin-001",
+            fullName: "System Administrator",
+            email: "admin@example.com",
+            role: "Admin",
+            avatar: "https://via.placeholder.com/40x40/1F2937/ffffff?text=A"
+          }
+        };
+
+        localStorage.setItem("token", adminUserData.token);
+
+        console.log("=== Built-in Admin Login ===");
+        console.log("Admin user data:", adminUserData);
+        console.log("============================");
+
+        // Store in Redux
+        dispatch(login(adminUserData));
+
+        toast.success("Successfully logged in as Administrator!");
+
+        // Navigate to dashboard
+        setTimeout(() => {
+          navigate("/dashboard/category");
+        }, 100);
+
+        return;
+      }
+
+      // Regular API login for other users
       const response = await api.post("Auth/login", values);
       toast.success("Successfully logged in!");
       console.log(response);
