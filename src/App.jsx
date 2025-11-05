@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/protected-route";
 import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
 import ManageSubscription from "./pages/subscription";
+import ManageChargingStation from "./pages/charging-station";
 import { useSelector } from "react-redux";
 
 // Component to handle admin redirect on home page
@@ -47,6 +48,10 @@ function App() {
         {
           path: "subscription",
           element: <ManageSubscription />, // Outlet
+        },
+        {
+          path: "charging-station",
+          element: <ManageChargingStation />, // Outlet
         },
       ],
     },

@@ -25,6 +25,7 @@ function getItem(label, key, icon, children) {
 const items = [
   getItem("Manage Category", "category", <PieChartOutlined />),
   getItem("Manage Subscription", "subscription", <PieChartOutlined />),
+  getItem("Manage Charging Station", "charging-station", <PieChartOutlined />),
 ];
 
 const Dashboard = () => {
