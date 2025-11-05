@@ -3,18 +3,15 @@
 
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import Dashboard from "./components/dashboard";
-import ManageBike from "./pages/bike";
 import ManageCategory from "./pages/category";
 import { ToastContainer } from "react-toastify";
 import LoginPage from "./pages/login";
 import RegisterPage from "./pages/register";
 import EbikeHomePage from "./pages/home";
 import ProtectedRoute from "./components/protected-route";
-import ManageVoucher from "./pages/voucher";
-import ManageStore from "./pages/store";
-import ServicePage from "./pages/service";
 import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
+import ManageSubscription from "./pages/subscription";
 import { useSelector } from "react-redux";
 
 // Component to handle admin redirect on home page
@@ -44,28 +41,12 @@ function App() {
       ),
       children: [
         {
-          path: "bike",
-          element: <ManageBike />, // Outlet
-        },
-        {
           path: "category",
           element: <ManageCategory />, // Outlet
         },
         {
-          path: "voucher",
-          element: <ManageVoucher />, // Outlet
-        },
-        {
-          path: "store",
-          element: <ManageStore />, // Outlet
-        },
-        {
-          path: "service",
-          element: <ServicePage />, // Outlet
-        },
-        {
-          path: "map",
-          element: <MapPage />, // Outlet
+          path: "subscription",
+          element: <ManageSubscription />, // Outlet
         },
       ],
     },

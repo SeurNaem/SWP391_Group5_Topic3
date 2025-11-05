@@ -43,39 +43,61 @@ const LoginPage = () => {
 
       // Check for built-in admin account
       if (values.email === "admin@example.com" && values.password === "admin1234") {
-        // Built-in admin account
-        const adminUserData = {
-          token: "admin-built-in-token-" + Date.now(), // Generate a unique token
-          role: "Admin",
-          user: {
-            id: "admin-001",
-            fullName: "System Administrator",
-            email: "admin@example.com",
+        // Try to authenticate with a real admin account on the backend
+        // For development, let's use a real admin account if available
+        try {
+          // Try the built-in credentials with the actual API first
+          const adminValues = {
+            email: "admin@admin.com", // Update this to match your backend admin account
+            password: "admin123456"   // Update this to match your backend admin password
+          };
+
+          const response = await api.post("Auth/login", adminValues);
+          const { token, role } = response.data;
+          localStorage.setItem("token", token);
+
+          const formattedRole = role === "ADMIN" ? "Admin" : role;
+          const userData = {
+            ...response.data,
+            role: formattedRole
+          };
+
+          dispatch(login(userData));
+          toast.success("Successfully logged in as Administrator!");
+
+          setTimeout(() => {
+            navigate("/dashboard/category");
+          }, 100);
+
+          return;
+        } catch (apiError) {
+          console.log("API admin login failed, using offline mode:", apiError);
+
+          // Fallback: create offline admin for UI testing (with warning)
+          const adminUserData = {
+            token: "offline-admin-token", // This won't work with real API calls
             role: "Admin",
-            avatar: "https://via.placeholder.com/40x40/1F2937/ffffff?text=A"
-          }
-        };
+            user: {
+              id: "admin-001",
+              fullName: "System Administrator (Offline)",
+              email: "admin@example.com",
+              role: "Admin",
+              avatar: "https://via.placeholder.com/40x40/1F2937/ffffff?text=A"
+            }
+          };
 
-        localStorage.setItem("token", adminUserData.token);
+          localStorage.setItem("token", adminUserData.token);
+          dispatch(login(adminUserData));
 
-        console.log("=== Built-in Admin Login ===");
-        console.log("Admin user data:", adminUserData);
-        console.log("============================");
+          toast.warning("Logged in as offline admin - API calls may fail!");
 
-        // Store in Redux
-        dispatch(login(adminUserData));
+          setTimeout(() => {
+            navigate("/dashboard/category");
+          }, 100);
 
-        toast.success("Successfully logged in as Administrator!");
-
-        // Navigate to dashboard
-        setTimeout(() => {
-          navigate("/dashboard/category");
-        }, 100);
-
-        return;
-      }
-
-      // Regular API login for other users
+          return;
+        }
+      }      // Regular API login for other users
       const response = await api.post("Auth/login", values);
       toast.success("Successfully logged in!");
       console.log(response);

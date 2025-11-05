@@ -23,11 +23,8 @@ function getItem(label, key, icon, children) {
 }
 
 const items = [
-  getItem("Manage Bike", "bike", <PieChartOutlined />),
   getItem("Manage Category", "category", <PieChartOutlined />),
-  getItem("Manage Voucher", "voucher", <PieChartOutlined />),
-  getItem("Manage Store", "store", <PieChartOutlined />),
-  getItem("Manage Service", "service", <PieChartOutlined />),
+  getItem("Manage Subscription", "subscription", <PieChartOutlined />),
 ];
 
 const Dashboard = () => {
@@ -133,6 +130,8 @@ const Dashboard = () => {
         collapsible
         collapsed={collapsed}
         onCollapse={(value) => setCollapsed(value)}
+        width={250}
+        collapsedWidth={80}
       >
         <div className="demo-logo-vertical" />
         <Menu
