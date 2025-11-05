@@ -23,9 +23,9 @@ function getItem(label, key, icon, children) {
 }
 
 const items = [
-  getItem("Manage Category", "category", <PieChartOutlined />),
   getItem("Manage Subscription", "subscription", <PieChartOutlined />),
   getItem("Manage Charging Station", "charging-station", <PieChartOutlined />),
+  getItem("Manage User", "user", <PieChartOutlined />),
 ];
 
 const Dashboard = () => {
@@ -144,16 +144,41 @@ const Dashboard = () => {
       </Sider>
       <Layout>
         <Header style={{ padding: "0 24px", background: colorBgContainer, position: 'relative' }}>
-          {/* Header Content: Enhanced User Info Display */}
+          {/* Header Content: WARP Logo and User Info */}
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
               alignItems: "center",
               height: "100%",
               position: 'relative'
             }}
           >
+            {/* WARP Logo Button */}
+            <div
+              onClick={() => navigate("/dashboard")}
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                letterSpacing: '0.2em',
+                cursor: 'pointer',
+                color: themeColors.primary,
+                transition: 'all 0.3s ease',
+                userSelect: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'scale(1.05)';
+                e.target.style.color = '#0066cc';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'scale(1)';
+                e.target.style.color = themeColors.primary;
+              }}
+            >
+              WARP
+            </div>
+
+            {/* User Profile Section */}
             <div
               className="user-dropdown-container"
               style={{

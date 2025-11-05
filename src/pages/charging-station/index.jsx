@@ -258,6 +258,7 @@ const ManageChargingStation = () => {
                 columns={columns}
                 apiURL="admin/stations"
                 formItems={formItems}
+                buttonText="Add Station"
             />
         </div>
     );

@@ -103,9 +103,11 @@ const ManageCategory = () => {
 
   return (
     <>
-      <Button type="primary" onClick={() => setOpen(true)}>
-        Add category
-      </Button>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="primary" onClick={() => setOpen(true)}>
+          Add category
+        </Button>
+      </div>
       <Table columns={colums} dataSource={categories} />
       <Modal
         title="Create new category"

@@ -66,7 +66,7 @@ const LoginPage = () => {
           toast.success("Successfully logged in as Administrator!");
 
           setTimeout(() => {
-            navigate("/dashboard/category");
+            navigate("/dashboard/subscription");
           }, 100);
 
           return;
@@ -92,7 +92,7 @@ const LoginPage = () => {
           toast.warning("Logged in as offline admin - API calls may fail!");
 
           setTimeout(() => {
-            navigate("/dashboard/category");
+            navigate("/dashboard/subscription");
           }, 100);
 
           return;

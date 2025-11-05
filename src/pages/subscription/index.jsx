@@ -139,6 +139,7 @@ const ManageSubscription = () => {
                 columns={columns}
                 apiURL="admin/subscriptions/packages"
                 formItems={formItems}
+                buttonText="Add Package"
             />
         </div>
     );

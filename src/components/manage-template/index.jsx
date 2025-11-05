@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import api from "../../config/axios";
 import dayjs from "dayjs";
 
-const ManageTemplate = ({ columns, apiURL, formItems }) => {
+const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category" }) => {
   // định nghĩa cái dữ liệu
   // => api
   // 1. tên biến
@@ -52,9 +52,11 @@ const ManageTemplate = ({ columns, apiURL, formItems }) => {
 
   return (
     <>
-      <Button type="primary" onClick={() => setOpen(true)}>
-        Add category
-      </Button>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="primary" onClick={() => setOpen(true)}>
+          {buttonText}
+        </Button>
+      </div>
       <Table
         columns={[
           ...columns,

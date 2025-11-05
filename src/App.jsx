@@ -3,7 +3,6 @@
 
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import Dashboard from "./components/dashboard";
-import ManageCategory from "./pages/category";
 import { ToastContainer } from "react-toastify";
 import LoginPage from "./pages/login";
 import RegisterPage from "./pages/register";
@@ -13,6 +12,7 @@ import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
 import ManageSubscription from "./pages/subscription";
 import ManageChargingStation from "./pages/charging-station";
+import ManageUser from "./pages/user";
 import { useSelector } from "react-redux";
 
 // Component to handle admin redirect on home page
@@ -21,7 +21,7 @@ function HomePage() {
 
   // If user is logged in as admin, redirect to dashboard
   if (account?.user?.role === "Admin") {
-    return <Navigate to="/dashboard/category" replace />;
+    return <Navigate to="/dashboard/subscription" replace />;
   }
 
   return <EbikeHomePage />;
@@ -42,8 +42,8 @@ function App() {
       ),
       children: [
         {
-          path: "category",
-          element: <ManageCategory />, // Outlet
+          index: true,
+          element: <Navigate to="/dashboard/subscription" replace />,
         },
         {
           path: "subscription",
@@ -52,6 +52,10 @@ function App() {
         {
           path: "charging-station",
           element: <ManageChargingStation />, // Outlet
+        },
+        {
+          path: "user",
+          element: <ManageUser />, // Outlet
         },
       ],
     },
