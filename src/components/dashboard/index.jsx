@@ -3,7 +3,7 @@ import {
   PieChartOutlined,
 } from "@ant-design/icons";
 import { Breadcrumb, Layout, Menu, theme } from "antd";
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
 import { FiUser, FiLogOut, FiShoppingCart } from "react-icons/fi";
@@ -23,6 +23,7 @@ function getItem(label, key, icon, children) {
 }
 
 const items = [
+  getItem("Reports Dashboard", "reports", <PieChartOutlined />),
   getItem("Manage Subscription", "subscription", <PieChartOutlined />),
   getItem("Manage Charging Station", "charging-station", <PieChartOutlined />),
   getItem("Manage User", "user", <PieChartOutlined />),
@@ -39,6 +40,17 @@ const Dashboard = () => {
   const account = useSelector((state) => state.account);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get current selected key based on pathname
+  const getCurrentSelectedKey = () => {
+    const pathname = location.pathname;
+    if (pathname.includes('/reports')) return 'reports';
+    if (pathname.includes('/subscription')) return 'subscription';
+    if (pathname.includes('/charging-station')) return 'charging-station';
+    if (pathname.includes('/user')) return 'user';
+    return 'reports'; // default to reports
+  };
 
   const user = {
     name: account?.user?.fullName || account?.fullName || "Admin User",
@@ -137,7 +149,7 @@ const Dashboard = () => {
         <div className="demo-logo-vertical" />
         <Menu
           theme="dark"
-          defaultSelectedKeys={["1"]}
+          selectedKeys={[getCurrentSelectedKey()]}
           mode="inline"
           items={items}
         />

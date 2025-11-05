@@ -13,6 +13,7 @@ import PaymentPage from "./pages/payment";
 import ManageSubscription from "./pages/subscription";
 import ManageChargingStation from "./pages/charging-station";
 import ManageUser from "./pages/user";
+import Reports from "./pages/report";
 import { useSelector } from "react-redux";
 
 // Component to handle admin redirect on home page
@@ -21,7 +22,7 @@ function HomePage() {
 
   // If user is logged in as admin, redirect to dashboard
   if (account?.user?.role === "Admin") {
-    return <Navigate to="/dashboard/subscription" replace />;
+    return <Navigate to="/dashboard/reports" replace />;
   }
 
   return <EbikeHomePage />;
@@ -43,7 +44,11 @@ function App() {
       children: [
         {
           index: true,
-          element: <Navigate to="/dashboard/subscription" replace />,
+          element: <Navigate to="/dashboard/reports" replace />,
+        },
+        {
+          path: "reports",
+          element: <Reports />, // Outlet
         },
         {
           path: "subscription",
