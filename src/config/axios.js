@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Set config defaults when creating the instance
 const api = axios.create({
-  baseURL: "https://arlena-meandrous-unethnologically.ngrok-free.dev/api/",
+  baseURL: "https://thioacetic-danny-postpositively.ngrok-free.dev/api/",
 });
 
 // Add ngrok-skip-browser-warning header for ngrok
