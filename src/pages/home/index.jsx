@@ -475,7 +475,7 @@ const EbikeHomePage = () => {
                       e.target.style.boxShadow = 'none';
                     }}
                   >
-                    <FiShoppingCart /> Order History
+                    <FiShoppingCart /> Charging History
                   </a>
                   <div style={{ borderTop: '1px solid #374151', margin: '0.5rem 0' }}></div>
                   <button

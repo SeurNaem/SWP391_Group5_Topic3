@@ -272,6 +272,7 @@ const ManageUser = () => {
                 apiURL={buildApiUrl()}
                 formItems={formItems}
                 buttonText="Add User"
+                idField="userId"
             />
         </div>
     );

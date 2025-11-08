@@ -140,6 +140,7 @@ const ManageSubscription = () => {
                 apiURL="admin/subscriptions/packages"
                 formItems={formItems}
                 buttonText="Add Package"
+                idField="packageId"
             />
         </div>
     );
