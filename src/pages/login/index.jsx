@@ -44,14 +44,57 @@ const LoginPage = () => {
       const { token, role } = response.data;
       localStorage.setItem("token", token);
 
+<<<<<<< Updated upstream
+=======
+      // Convert role to proper case format (Admin instead of ADMIN, Staff instead of STAFF)
+      let formattedRole = role;
+      if (role === "ADMIN") {
+        formattedRole = "Admin";
+      } else if (role === "STAFF") {
+        formattedRole = "Staff";
+      }
+
+      // Update response data with formatted role
+      const userData = {
+        ...response.data,
+        role: formattedRole
+      };
+
+      // Enhanced debug logging
+      console.log("=== Login Debug ===");
+      console.log("Original API response:", response.data);
+      console.log("Original role from API:", role);
+      console.log("Formatted role:", formattedRole);
+      console.log("Final userData being dispatched:", userData);
+      console.log("==================");
+
+>>>>>>> Stashed changes
       // lưu state
       dispatch(login(response.data));
 
+<<<<<<< Updated upstream
       if (role === "ADMIN") {
         navigate("/dashboard");
       } else {
         navigate("/");
       }
+=======
+      // Add a small delay to ensure Redux state is updated
+      setTimeout(() => {
+        console.log("After dispatch - checking Redux state...");
+
+        if (formattedRole === "Admin") {
+          console.log("Navigating to dashboard for Admin role");
+          navigate("/dashboard");
+        } else if (formattedRole === "Staff") {
+          console.log("Navigating to staff page for Staff role");
+          navigate("/staff");
+        } else {
+          console.log("Navigating to home for non-admin role");
+          navigate("/");
+        }
+      }, 100);
+>>>>>>> Stashed changes
     } catch (error) {
       console.error("Login error:", error);
       message.error("Login failed. Please try again.");
