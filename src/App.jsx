@@ -14,15 +14,24 @@ import ManageSubscription from "./pages/subscription";
 import ManageChargingStation from "./pages/charging-station";
 import ManageUser from "./pages/user";
 import Reports from "./pages/report";
+import StaffPage from "./pages/staff";
+import ChargingPointsPage from "./pages/staff/charging-points";
+import SessionHistoryPage from "./pages/staff/session-history";
+import SessionDetailPage from "./pages/staff/session-detail";
 import { useSelector } from "react-redux";
 
-// Component to handle admin redirect on home page
+// Component to handle role-based redirect on home page
 function HomePage() {
   const account = useSelector((state) => state.account);
 
   // If user is logged in as admin, redirect to dashboard
   if (account?.user?.role === "Admin") {
     return <Navigate to="/dashboard/reports" replace />;
+  }
+
+  // If user is logged in as staff, redirect to staff page
+  if (account?.user?.role === "Staff") {
+    return <Navigate to="/staff" replace />;
   }
 
   return <EbikeHomePage />;
@@ -63,6 +72,38 @@ function App() {
           element: <ManageUser />, // Outlet
         },
       ],
+    },
+    {
+      path: "/staff",
+      element: (
+        <ProtectedRoute role={"Staff"}>
+          <StaffPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/staff/charging-points/:stationId",
+      element: (
+        <ProtectedRoute role={"Staff"}>
+          <ChargingPointsPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/staff/session-history/:stationId",
+      element: (
+        <ProtectedRoute role={"Staff"}>
+          <SessionHistoryPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/staff/session-detail",
+      element: (
+        <ProtectedRoute role={"Staff"}>
+          <SessionDetailPage />
+        </ProtectedRoute>
+      ),
     },
     {
       path: "/",
