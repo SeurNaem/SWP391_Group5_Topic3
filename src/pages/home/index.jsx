@@ -440,6 +440,11 @@ const EbikeHomePage = () => {
                   <a
                     href="#"
                     style={styles.dropdownItem}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/profile');
+                      setIsDropdownOpen(false);
+                    }}
                     onMouseEnter={(e) => {
                       e.target.style.backgroundColor = themeColors.primary;
                       e.target.style.transform = 'scale(1.02)';
@@ -565,9 +570,7 @@ const EbikeHomePage = () => {
             </button>
           </div>
         </div>
-      </section>
-
-      {/* --- Features Section --- */}
+      </section>      {/* --- Features Section --- */}
       <section style={styles.featuresSection} id="features">
         <h2 style={styles.featuresTitle}>Why WARP?</h2>
         <div style={styles.featuresGrid}>

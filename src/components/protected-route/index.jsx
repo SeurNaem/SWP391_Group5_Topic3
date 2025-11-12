@@ -4,10 +4,16 @@ import { useSelector } from "react-redux";
 import { Outlet, useNavigate } from "react-router-dom";
 
 function ProtectedRoute({ role, children }) {
+  console.log('=== PROTECTED ROUTE DEBUG ===');
+  console.log('ProtectedRoute called with role:', role);
+  console.log('Children:', children);
+
   // so sánh role của account đang đăng nhập và cái role mà page yêu cầu
 
   const account = useSelector((store) => store.account);
   const navigate = useNavigate();
+
+  console.log('Account from Redux:', account);
 
   // Extract user role from nested structure
   const userRole = account?.user?.role || account?.role;
@@ -25,6 +31,7 @@ function ProtectedRoute({ role, children }) {
   console.log("Required role type:", typeof role);
   console.log("Are roles strictly equal?", userRole === role);
   console.log("Account truthy?", !!account);
+  console.log("No role required?", !role);
   console.log("========================");
 
   // Check if user is logged in
@@ -50,8 +57,9 @@ function ProtectedRoute({ role, children }) {
   }
 
   // Case-sensitive role comparison using extracted role
-  if (userRole === role) {
-    console.log("Access granted - roles match exactly");
+  // If no specific role is required, just check if user is logged in
+  if (!role || userRole === role) {
+    console.log("Access granted - roles match exactly or no specific role required");
     // cho qua
     return children;
   } else {

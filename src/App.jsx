@@ -18,6 +18,7 @@ import StaffPage from "./pages/staff";
 import ChargingPointsPage from "./pages/staff/charging-points";
 import SessionHistoryPage from "./pages/staff/session-history";
 import SessionDetailPage from "./pages/staff/session-detail";
+import ProfilePage from "./pages/profile";
 import { useSelector } from "react-redux";
 
 // Component to handle role-based redirect on home page
@@ -124,6 +125,14 @@ function App() {
     {
       path: "/payment",
       element: <PaymentPage />,
+    },
+    {
+      path: "/profile",
+      element: (
+        <ProtectedRoute>
+          <ProfilePage />
+        </ProtectedRoute>
+      ),
     },
   ]);
 
