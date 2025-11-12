@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag, Badge } from 'antd';
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, HomeOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import MapComponent from '../../components/map';
@@ -9,6 +9,20 @@ import { fetchStations } from '../../redux/slices/stationSlice';
 
 const { Title, Text } = Typography;
 
+// Utility function to calculate distance between two coordinates (Haversine formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+};
+
 const MapPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -17,6 +31,7 @@ const MapPage = () => {
     const [stationDetails, setStationDetails] = useState(null);
     const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Ho Chi Minh City
     const [mapZoom, setMapZoom] = useState(13);
+    const [userLocation, setUserLocation] = useState(null);
 
     const dispatch = useDispatch();
     const { stations: chargingStations } = useSelector(state => state.stations || { stations: [] });
@@ -64,7 +79,36 @@ const MapPage = () => {
             chargingPoints: station.chargingPoints || []
         });
     };    // Use the stations directly from Redux (they already include charging points data)
-    const enhancedStations = chargingStations;
+    // Handle user location updates (without auto-centering the map)
+    const handleUserLocationUpdate = (location) => {
+        setUserLocation(location);
+        // Don't show location success message or auto-center map
+    };
+
+    // Enhance stations with distance information
+    const enhancedStations = chargingStations.map(station => {
+        let enhancedStation = { ...station };
+
+        // Add distance if user location is available
+        if (userLocation) {
+            const distance = calculateDistance(
+                userLocation[0], userLocation[1],
+                station.lat, station.lng
+            );
+            enhancedStation.distance = distance;
+            enhancedStation.distanceText = distance < 1
+                ? `${(distance * 1000).toFixed(0)}m`
+                : `${distance.toFixed(1)}km`;
+        }
+
+        return enhancedStation;
+    }).sort((a, b) => {
+        // Sort by distance if available, otherwise by name
+        if (a.distance && b.distance) {
+            return a.distance - b.distance;
+        }
+        return (a.title || '').localeCompare(b.title || '');
+    });
 
     // Refresh stations
     const refreshStations = async () => {
@@ -163,6 +207,37 @@ const MapPage = () => {
                     </Card>
                 </Col>
 
+                {/* Charging Stations Info Bar */}
+                <Col span={24}>
+                    <Card>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <div>
+                                    <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
+                                        ⚡ Charging Stations
+                                    </Title>
+                                    <Text type="secondary">({enhancedStations.length} found)</Text>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Text strong style={{ marginRight: '8px' }}>Connector Status:</Text>
+                                <Space size="small">
+                                    <Tag color="success" style={{ margin: 0 }}>Available</Tag>
+                                    <Tag color="warning" style={{ margin: 0 }}>Reserved</Tag>
+                                    <Tag color="processing" style={{ margin: 0 }}>Occupied</Tag>
+                                    <Tag color="error" style={{ margin: 0 }}>Offline</Tag>
+                                </Space>
+                            </div>
+                        </div>
+                    </Card>
+                </Col>
+
 
 
                 {/* Map */}
@@ -175,6 +250,7 @@ const MapPage = () => {
                             markers={enhancedStations}
                             onMapClick={handleMapClick}
                             showCurrentLocation={true}
+                            onLocationFound={handleUserLocationUpdate}
                         />
                     </Card>
                 </Col>
