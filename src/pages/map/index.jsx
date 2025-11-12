@@ -194,51 +194,10 @@ const MapPage = () => {
                                 >
                                     Refresh
                                 </Button>
-                                <Button
-                                    type="dashed"
-                                    size="small"
-                                    onClick={() => preloadStationDetails(chargingStations)}
-                                    loading={loading}
-                                >
-                                    Update Connectors
-                                </Button>
                             </Space>
                         </div>
                     </Card>
                 </Col>
-
-                {/* Charging Stations Info Bar */}
-                <Col span={24}>
-                    <Card>
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '12px 0'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div>
-                                    <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-                                        ⚡ Charging Stations
-                                    </Title>
-                                    <Text type="secondary">({enhancedStations.length} found)</Text>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Text strong style={{ marginRight: '8px' }}>Connector Status:</Text>
-                                <Space size="small">
-                                    <Tag color="success" style={{ margin: 0 }}>Available</Tag>
-                                    <Tag color="warning" style={{ margin: 0 }}>Reserved</Tag>
-                                    <Tag color="processing" style={{ margin: 0 }}>Occupied</Tag>
-                                    <Tag color="error" style={{ margin: 0 }}>Offline</Tag>
-                                </Space>
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-
 
                 {/* Map */}
                 <Col xs={24} lg={16}>

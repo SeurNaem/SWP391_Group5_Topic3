@@ -451,20 +451,40 @@ const ChargingStationList = ({
     return (
         <Card
             title={
-                <div>
-                    <Space style={{ marginBottom: '4px' }}>
-                        <EnvironmentOutlined style={{ color: '#1890ff' }} />
-                        <Title level={4} style={{ margin: 0 }}>
-                            Charging Stations
-                        </Title>
-                        <Text type="secondary">({processedStations.length} found)</Text>
-                    </Space>
-                    <div style={{ fontSize: '12px', marginLeft: '20px' }}>
-                        <Text type="secondary">Connector Status: </Text>
-                        <Tag color="success" size="small">Available</Tag>
-                        <Tag color="warning" size="small">Reserved</Tag>
-                        <Tag color="processing" size="small">Occupied</Tag>
-                        <Tag color="error" size="small">Offline</Tag>
+                <div style={{ width: '100%' }}>
+                    <div style={{ marginBottom: '8px' }}>
+                        <Space>
+                            <EnvironmentOutlined style={{ color: '#1890ff' }} />
+                            <Title level={4} style={{ margin: 0 }}>
+                                Charging Stations
+                            </Title>
+                            <Text type="secondary">({processedStations.length} found)</Text>
+                        </Space>
+                    </div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginTop: '8px'
+                    }}>
+                        <Text type="secondary" style={{ fontSize: '13px', fontWeight: '500' }}>
+                            Connector Status:
+                        </Text>
+                        <Space size={4}>
+                            <Tag color="success" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                Available
+                            </Tag>
+                            <Tag color="warning" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                Reserved
+                            </Tag>
+                            <Tag color="processing" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                Occupied
+                            </Tag>
+                            <Tag color="error" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                Offline
+                            </Tag>
+                        </Space>
                     </div>
                 </div>
             }
