@@ -9,26 +9,37 @@ export const fetchStations = createAsyncThunk(
             // Use new backend endpoint for charging stations
             const response = await api.get('ChargingStation');
 
-            // Map backend response to frontend format
-            const mappedStations = response.data.map(station => ({
-                id: station.stationId,
-                title: station.name,
-                lat: station.latitude,
-                lng: station.longitude,
-                address: station.address,
-                status: mapStatus(station.status),
-                type: 'charging-station',
-                description: `Rating: ${station.rating}/5`,
-                // Add default values for fields expected by frontend
-                chargerTypes: station.chargingPoints?.map(point => point.type) || ['Type 2', 'CCS'],
-                power: station.totalPoints ? `${station.totalPoints * 22}kW` : '22kW',
-                price: '3,500 VND/kWh', // Default price - update when backend provides this
-                imageUrl: station.imageUrl,
-                rating: station.rating,
-                openHours: station.openHours,
-                chargingPoints: station.chargingPoints || []
-            }));
+            console.log('Raw API Response:', response.data);
 
+            // Map backend response to frontend format
+            const mappedStations = response.data.map(station => {
+                console.log('Processing station:', station);
+                return {
+                    id: station.stationId,
+                    title: station.name,
+                    lat: station.latitude,
+                    lng: station.longitude,
+                    address: station.address,
+                    status: mapStatus(station.status),
+                    type: 'charging-station',
+                    description: `Rating: ${station.rating}/5`,
+                    // Extract unique connector types from charging points
+                    chargerTypes: station.chargingPoints?.length > 0 ?
+                        [...new Set(station.chargingPoints.map(point =>
+                            point.connectorType || point.type || 'Type 2'
+                        ))] :
+                        ['Type 2', 'CCS'], // Default types if no charging points data
+                    power: station.totalPoints ? `${station.totalPoints * 22}kW` :
+                        station.chargingPoints?.length > 0 ? `${station.chargingPoints.length * 22}kW` : '22kW',
+                    price: station.pricePerKWh ? `${station.pricePerKWh} VND/kWh` : '3,500 VND/kWh',
+                    imageUrl: station.imageUrl,
+                    rating: station.rating,
+                    openHours: station.openHours,
+                    chargingPoints: station.chargingPoints || []
+                };
+            });
+
+            console.log('Mapped stations:', mappedStations);
             return mappedStations;
         } catch (error) {
             return rejectWithValue(error.response?.data || error.message);

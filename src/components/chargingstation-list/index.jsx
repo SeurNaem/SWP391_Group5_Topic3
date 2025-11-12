@@ -136,17 +136,137 @@ const StationCard = ({
                 </div>
 
                 {/* Connector types */}
-                <div>
+                <div style={{ minHeight: '20px' }}>
                     <Text style={{ fontSize: '12px', color: '#666' }}>Connectors: </Text>
-                    {station.chargerTypes?.map((type, index) => (
-                        <Tag
-                            key={index}
-                            size="small"
-                            style={{ fontSize: '10px', margin: '0 2px' }}
-                        >
-                            {type}
-                        </Tag>
-                    ))}
+                    {(() => {
+                        console.log('Station charging points:', station.chargingPoints);
+                        console.log('Station chargerTypes:', station.chargerTypes);
+
+                        // If we have detailed charging points data with status - PRIORITIZE THIS
+                        if (station.chargingPoints && station.chargingPoints.length > 0) {
+                            // Group charging points by connector type to avoid duplicates
+                            const connectorGroups = {};
+                            station.chargingPoints.forEach(point => {
+                                const connectorType = point.connectorType || point.type || 'Unknown';
+                                if (!connectorGroups[connectorType]) {
+                                    connectorGroups[connectorType] = [];
+                                }
+                                connectorGroups[connectorType].push(point);
+                            });
+
+                            return Object.entries(connectorGroups).map(([connectorType, points], index) => {
+                                // Determine the overall status for this connector type
+                                // Priority: offline > occupied > reserved > available
+                                let overallStatus = 'available';
+                                if (points.some(p => ['offline', 'maintenance'].includes(p.status?.toLowerCase()))) {
+                                    overallStatus = 'offline';
+                                } else if (points.some(p => ['occupied', 'busy'].includes(p.status?.toLowerCase()))) {
+                                    overallStatus = 'occupied';
+                                } else if (points.some(p => p.status?.toLowerCase() === 'reserved')) {
+                                    overallStatus = 'reserved';
+                                }
+
+                                console.log('Connector type:', connectorType, 'Overall status:', overallStatus, 'Points:', points);
+
+                                const getConnectorColor = (status) => {
+                                    console.log('Getting color for status:', status);
+                                    switch (status?.toLowerCase()) {
+                                        case 'available':
+                                            return 'success'; // Green
+                                        case 'reserved':
+                                            return 'warning'; // Orange
+                                        case 'offline':
+                                        case 'maintenance':
+                                            return 'error'; // Red
+                                        case 'occupied':
+                                        case 'busy':
+                                            return 'processing'; // Blue
+                                        default:
+                                            return 'default'; // Gray
+                                    }
+                                };
+
+                                const color = getConnectorColor(overallStatus);
+                                console.log('Final color for connector:', color, 'type:', connectorType, 'status:', overallStatus);
+
+                                return (
+                                    <Tag
+                                        key={index}
+                                        size="small"
+                                        color={color}
+                                        style={{
+                                            fontSize: '10px',
+                                            margin: '0 2px 2px 0',
+                                            borderRadius: '4px'
+                                        }}
+                                        title={`${connectorType}: ${points.length} point(s) - ${overallStatus}`}
+                                    >
+                                        {connectorType}
+                                    </Tag>
+                                );
+                            });
+                        }
+
+                        // If we only have chargerTypes array (fallback to station status)
+                        if (station.chargerTypes && station.chargerTypes.length > 0) {
+                            const getStationColor = (stationStatus) => {
+                                switch (stationStatus?.toLowerCase()) {
+                                    case 'available':
+                                        return 'success'; // Green
+                                    case 'occupied':
+                                        return 'warning'; // Orange
+                                    case 'maintenance':
+                                        return 'error'; // Red
+                                    default:
+                                        return 'processing'; // Blue
+                                }
+                            };
+
+                            return station.chargerTypes.map((type, index) => (
+                                <Tag
+                                    key={index}
+                                    size="small"
+                                    color={getStationColor(station.status)}
+                                    style={{
+                                        fontSize: '10px',
+                                        margin: '0 2px 2px 0',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    {type}
+                                </Tag>
+                            ));
+                        }
+
+                        // Default fallback connectors (use station status)
+                        const getStationColor = (stationStatus) => {
+                            switch (stationStatus?.toLowerCase()) {
+                                case 'available':
+                                    return 'success'; // Green
+                                case 'occupied':
+                                    return 'warning'; // Orange
+                                case 'maintenance':
+                                    return 'error'; // Red
+                                default:
+                                    return 'processing'; // Blue
+                            }
+                        };
+
+                        return ['Type 2', 'CCS'].map((type, index) => (
+                            <Tag
+                                key={index}
+                                size="small"
+                                color={getStationColor(station.status)}
+                                style={{
+                                    fontSize: '10px',
+                                    margin: '0 2px 2px 0',
+                                    borderRadius: '4px'
+                                }}
+                            >
+                                {type}
+                            </Tag>
+                        ));
+                    })()}
                 </div>
 
                 {/* Travel time estimate */}
@@ -331,13 +451,22 @@ const ChargingStationList = ({
     return (
         <Card
             title={
-                <Space>
-                    <EnvironmentOutlined style={{ color: '#1890ff' }} />
-                    <Title level={4} style={{ margin: 0 }}>
-                        Charging Stations
-                    </Title>
-                    <Text type="secondary">({processedStations.length} found)</Text>
-                </Space>
+                <div>
+                    <Space style={{ marginBottom: '4px' }}>
+                        <EnvironmentOutlined style={{ color: '#1890ff' }} />
+                        <Title level={4} style={{ margin: 0 }}>
+                            Charging Stations
+                        </Title>
+                        <Text type="secondary">({processedStations.length} found)</Text>
+                    </Space>
+                    <div style={{ fontSize: '12px', marginLeft: '20px' }}>
+                        <Text type="secondary">Connector Status: </Text>
+                        <Tag color="success" size="small">Available</Tag>
+                        <Tag color="warning" size="small">Reserved</Tag>
+                        <Tag color="processing" size="small">Occupied</Tag>
+                        <Tag color="error" size="small">Offline</Tag>
+                    </div>
+                </div>
             }
             extra={
                 <Tooltip title="Refresh location">

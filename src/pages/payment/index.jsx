@@ -22,10 +22,14 @@ import {
     CheckCircleOutlined,
     DollarOutlined,
     ThunderboltOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    CarOutlined,
+    ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import dayjs from 'dayjs';
 import { fetchWallets, deductFromWallet } from '../../service/wallet.api';
+import { createReservation, checkAvailability } from '../../service/reservation.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -45,6 +49,19 @@ const PaymentPage = () => {
     const [walletData, setWalletData] = useState(null);
     const [chargingDuration, setChargingDuration] = useState(1);
     const [estimatedCost, setEstimatedCost] = useState(0);
+    const [reservationData, setReservationData] = useState({
+        vehicleType: '',
+        selectedChargingPoint: null
+    });
+    const [availableChargingPoints] = useState([
+        { id: 1, name: 'CCS - 50kW', type: 'CCS', power: '50kW', status: 'available' },
+        { id: 2, name: 'CHAdeMO - 50kW', type: 'CHAdeMO', power: '50kW', status: 'available' },
+        { id: 3, name: 'CCS - 22kW', type: 'CCS', power: '22kW', status: 'reserved' },
+        { id: 4, name: 'AC - 11kW', type: 'Type 2', power: '11kW', status: 'available' },
+        { id: 5, name: 'CCS - 150kW', type: 'CCS', power: '150kW', status: 'offline' },
+        { id: 6, name: 'CHAdeMO - 22kW', type: 'CHAdeMO', power: '22kW', status: 'available' }
+    ]);
+    const [createdReservation, setCreatedReservation] = useState(null);
 
     const fetchWalletData = async () => {
         try {
@@ -101,9 +118,80 @@ const PaymentPage = () => {
         }
     };
 
+    const validateSelectedChargingPoint = () => {
+        if (!reservationData.selectedChargingPoint) return false;
+
+        const selectedPoint = availableChargingPoints.find(
+            point => point.id === reservationData.selectedChargingPoint
+        );
+
+        if (!selectedPoint) return false;
+
+        if (selectedPoint.status === 'reserved') {
+            message.error('The selected charging point is currently reserved. Please select another charging point.');
+            return false;
+        }
+
+        if (selectedPoint.status === 'offline') {
+            message.error('The selected charging point is offline for maintenance. Please select another charging point.');
+            return false;
+        }
+
+        return selectedPoint.status === 'available';
+    };
+
+    const handleContinueToDuration = () => {
+        if (!reservationData.vehicleType) {
+            message.error('Please select your vehicle type.');
+            return;
+        }
+
+        if (!validateSelectedChargingPoint()) {
+            return;
+        }
+
+        setCurrentStep(1);
+    };
+
     const handlePayment = async () => {
         try {
             setLoading(true);
+
+            // Validate reservation data
+            if (!reservationData.vehicleType || !reservationData.selectedChargingPoint) {
+                message.error('Please fill in all reservation details.');
+                setCurrentStep(0);
+                return;
+            }
+
+            // Validate charging point availability before payment
+            if (!validateSelectedChargingPoint()) {
+                setCurrentStep(0);
+                return;
+            }
+
+            // Calculate start and end time (immediate start)
+            const startTime = dayjs();
+            const endTime = startTime.add(chargingDuration, 'hour');
+
+            // Check availability first
+            try {
+                const availabilityCheck = await checkAvailability({
+                    stationId: stationData.id,
+                    chargingPointId: reservationData.selectedChargingPoint,
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString()
+                });
+
+                if (!availabilityCheck.available) {
+                    message.error('The selected time slot is no longer available. Please choose a different time.');
+                    setCurrentStep(0);
+                    return;
+                }
+            } catch (availabilityError) {
+                console.log('Availability check failed, proceeding with reservation:', availabilityError);
+                // Continue with reservation creation even if availability check fails
+            }
 
             // Validate wallet balance if using wallet payment
             if (paymentMethod === 'wallet') {
@@ -137,29 +225,46 @@ const PaymentPage = () => {
                 message.success('Payment processed successfully!');
             }
 
-            message.success('Your charging session has been reserved.');
-            setCurrentStep(2);
+            // Create reservation after successful payment
+            const reservationPayload = {
+                stationId: stationData.id,
+                chargingPointId: reservationData.selectedChargingPoint,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                vehicleType: reservationData.vehicleType,
+                paymentMethod: paymentMethod,
+                totalCost: estimatedCost
+            };
 
-            // Redirect to map after successful payment
+            const reservation = await createReservation(reservationPayload);
+            setCreatedReservation(reservation);
+
+            message.success('Your charging session has been reserved.');
+            setCurrentStep(3); // Move to confirmation step
+
+            // Redirect to map after successful payment and reservation
             setTimeout(() => {
                 navigate('/map', {
                     state: {
                         paymentSuccess: true,
                         reservedStation: stationData,
+                        reservation: reservation,
                         paymentMethod: paymentMethod,
                         amountPaid: estimatedCost
                     }
                 });
-            }, 3000);
+            }, 5000); // Increased time to show reservation details
 
         } catch (error) {
-            console.error('Payment error:', error);
+            console.error('Payment/Reservation error:', error);
             if (error.response?.status === 400) {
-                message.error('Payment failed: Invalid wallet or insufficient funds.');
+                message.error('Failed: Invalid data or insufficient funds.');
             } else if (error.response?.status === 401) {
-                message.error('Payment failed: Authentication required.');
+                message.error('Failed: Authentication required.');
+            } else if (error.response?.status === 409) {
+                message.error('Reservation failed: Time slot is already booked.');
             } else {
-                message.error('Payment failed. Please try again.');
+                message.error('Payment or reservation failed. Please try again.');
             }
         } finally {
             setLoading(false);
@@ -179,8 +284,12 @@ const PaymentPage = () => {
 
     const steps = [
         {
+            title: 'Reservation Details',
+            icon: <CarOutlined />
+        },
+        {
             title: 'Select Duration',
-            icon: <ThunderboltOutlined />
+            icon: <ClockCircleOutlined />
         },
         {
             title: 'Payment',
@@ -232,6 +341,136 @@ const PaymentPage = () => {
                         {currentStep === 0 && (
                             <Form form={form} layout="vertical">
                                 <Alert
+                                    message="Reservation Details"
+                                    description="Please provide your vehicle and scheduling details"
+                                    type="info"
+                                    showIcon
+                                    style={{ marginBottom: '24px' }}
+                                />
+
+                                <Row gutter={[16, 16]}>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item
+                                            label="Vehicle Type"
+                                            required
+                                            rules={[{ required: true, message: 'Please select vehicle type' }]}
+                                        >
+                                            <Select
+                                                placeholder="Select your vehicle type"
+                                                value={reservationData.vehicleType}
+                                                onChange={(value) => setReservationData(prev => ({ ...prev, vehicleType: value }))}
+                                                size="large"
+                                            >
+                                                <Select.Option value="Electric Car">Electric Car</Select.Option>
+                                                <Select.Option value="Hybrid Car">Hybrid Car</Select.Option>
+                                                <Select.Option value="Electric Motorcycle">Electric Motorcycle</Select.Option>
+                                                <Select.Option value="Electric Scooter">Electric Scooter</Select.Option>
+                                                <Select.Option value="Electric Bus">Electric Bus</Select.Option>
+                                                <Select.Option value="Electric Van">Electric Van</Select.Option>
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
+
+                                    <Col xs={24} md={12}>
+                                        <Form.Item
+                                            label="Charging Point"
+                                            required
+                                            rules={[{ required: true, message: 'Please select a charging point' }]}
+                                            extra="Note: Only available charging points can be selected"
+                                        >
+                                            <Select
+                                                placeholder="Select charging point"
+                                                value={reservationData.selectedChargingPoint}
+                                                onChange={(value) => setReservationData(prev => ({ ...prev, selectedChargingPoint: value }))}
+                                                size="large"
+                                            >
+                                                {availableChargingPoints.map(point => {
+                                                    const isAvailable = point.status === 'available';
+                                                    const statusColor = point.status === 'available' ? '#52c41a' :
+                                                        point.status === 'reserved' ? '#faad14' : '#ff4d4f';
+                                                    const statusText = point.status === 'available' ? 'Available' :
+                                                        point.status === 'reserved' ? 'Reserved' : 'Offline';
+
+                                                    return (
+                                                        <Select.Option
+                                                            key={point.id}
+                                                            value={point.id}
+                                                            disabled={!isAvailable}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span>{point.name}</span>
+                                                                <span style={{
+                                                                    color: statusColor,
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                    {statusText}
+                                                                </span>
+                                                            </div>
+                                                        </Select.Option>
+                                                    );
+                                                })}
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                {/* Display selected charging point info */}
+                                {reservationData.selectedChargingPoint && (
+                                    <Alert
+                                        message={
+                                            (() => {
+                                                const selectedPoint = availableChargingPoints.find(
+                                                    point => point.id === reservationData.selectedChargingPoint
+                                                );
+                                                if (!selectedPoint) return "Selected charging point not found";
+
+                                                return (
+                                                    <div>
+                                                        <Text strong>Selected Charging Point:</Text>
+                                                        <br />
+                                                        <Text>{selectedPoint.name}</Text>
+                                                        <br />
+                                                        <Text>Type: {selectedPoint.type} | Power: {selectedPoint.power}</Text>
+                                                        <br />
+                                                        <Text style={{
+                                                            color: selectedPoint.status === 'available' ? '#52c41a' : '#ff4d4f'
+                                                        }}>
+                                                            Status: {selectedPoint.status.charAt(0).toUpperCase() + selectedPoint.status.slice(1)}
+                                                        </Text>
+                                                    </div>
+                                                );
+                                            })()
+                                        }
+                                        type={(() => {
+                                            const selectedPoint = availableChargingPoints.find(
+                                                point => point.id === reservationData.selectedChargingPoint
+                                            );
+                                            return selectedPoint?.status === 'available' ? 'success' : 'error';
+                                        })()}
+                                        showIcon
+                                        style={{ marginTop: '16px' }}
+                                    />
+                                )}
+
+                                <Divider />
+
+                                <div style={{ textAlign: 'center' }}>
+                                    <Button
+                                        type="primary"
+                                        size="large"
+                                        onClick={handleContinueToDuration}
+                                        disabled={!reservationData.vehicleType || !reservationData.selectedChargingPoint}
+                                    >
+                                        Continue to Duration
+                                    </Button>
+                                </div>
+                            </Form>
+                        )}
+
+                        {currentStep === 1 && (
+                            <Form form={form} layout="vertical">
+                                <Alert
                                     message="Select Charging Duration"
                                     description="Choose how long you want to charge your vehicle"
                                     type="info"
@@ -252,22 +491,42 @@ const PaymentPage = () => {
                                     />
                                 </Form.Item>
 
+                                <Alert
+                                    message={
+                                        <div>
+                                            <Text strong>Charging Session:</Text>
+                                            <br />
+                                            <Text>Duration: {chargingDuration} hour{chargingDuration !== 1 ? 's' : ''}</Text>
+                                            <br />
+                                            <Text>Start: Immediate (upon arrival)</Text>
+                                        </div>
+                                    }
+                                    type="info"
+                                    showIcon
+                                    style={{ marginTop: '16px' }}
+                                />
+
                                 <Divider />
 
                                 <div style={{ textAlign: 'center' }}>
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        onClick={() => setCurrentStep(1)}
-                                        disabled={!chargingDuration}
-                                    >
-                                        Continue to Payment
-                                    </Button>
+                                    <Space>
+                                        <Button onClick={() => setCurrentStep(0)}>
+                                            Back to Details
+                                        </Button>
+                                        <Button
+                                            type="primary"
+                                            size="large"
+                                            onClick={() => setCurrentStep(2)}
+                                            disabled={!chargingDuration}
+                                        >
+                                            Continue to Payment
+                                        </Button>
+                                    </Space>
                                 </div>
                             </Form>
                         )}
 
-                        {currentStep === 1 && (
+                        {currentStep === 2 && (
                             <div>
                                 <Alert
                                     message="Select Payment Method"
@@ -349,8 +608,8 @@ const PaymentPage = () => {
 
                                 <div style={{ textAlign: 'center' }}>
                                     <Space>
-                                        <Button onClick={() => setCurrentStep(0)}>
-                                            Back
+                                        <Button onClick={() => setCurrentStep(1)}>
+                                            Back to Duration
                                         </Button>
                                         <Button
                                             type="primary"
@@ -359,33 +618,72 @@ const PaymentPage = () => {
                                             onClick={handlePayment}
                                             disabled={paymentMethod === 'wallet' && walletData && walletData.balance < estimatedCost}
                                         >
-                                            Pay ${estimatedCost.toFixed(2)}
+                                            Pay ${estimatedCost.toFixed(2)} & Reserve
                                         </Button>
                                     </Space>
                                 </div>
                             </div>
                         )}
 
-                        {currentStep === 2 && (
+                        {currentStep === 3 && (
                             <div style={{ textAlign: 'center' }}>
                                 <CheckCircleOutlined
                                     style={{ fontSize: '64px', color: '#52c41a', marginBottom: '16px' }}
                                 />
-                                <Title level={3}>Payment Successful!</Title>
+                                <Title level={3}>Reservation Confirmed!</Title>
                                 <Paragraph>
-                                    Your charging session has been reserved. You will be redirected to the map shortly.
+                                    Your charging session has been successfully reserved and paid for. You will be redirected to the map shortly.
                                 </Paragraph>
 
-                                {/* Payment Summary */}
+                                {/* Reservation Details */}
                                 <Card
-                                    title="Payment Summary"
+                                    title="Reservation Details"
                                     style={{
                                         marginTop: '24px',
                                         textAlign: 'left',
-                                        maxWidth: '400px',
+                                        maxWidth: '500px',
                                         margin: '24px auto 0'
                                     }}
                                 >
+                                    {createdReservation && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <Text strong>Reservation ID: </Text>
+                                            <Text style={{ fontFamily: 'monospace', color: '#1890ff' }}>
+                                                {createdReservation.reservationId || 'RES-' + Date.now()}
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Vehicle: </Text>
+                                        <Text>{reservationData.vehicleType} ({reservationData.licensePlate})</Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Charging Point: </Text>
+                                        <Text>
+                                            {availableChargingPoints.find(p => p.id === reservationData.selectedChargingPoint)?.name}
+                                            ({availableChargingPoints.find(p => p.id === reservationData.selectedChargingPoint)?.type})
+                                        </Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Start Time: </Text>
+                                        <Text>{dayjs(reservationData.startTime).format('MMM DD, YYYY at HH:mm')}</Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>End Time: </Text>
+                                        <Text>{dayjs(reservationData.startTime).add(chargingDuration, 'hour').format('MMM DD, YYYY at HH:mm')}</Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Duration: </Text>
+                                        <Text>{chargingDuration} hours</Text>
+                                    </div>
+
+                                    <Divider />
+
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Payment Method: </Text>
                                         <Text>
@@ -417,6 +715,21 @@ const PaymentPage = () => {
                                         </div>
                                     )}
                                 </Card>
+
+                                <Alert
+                                    message="Important Reminders"
+                                    description={
+                                        <ul style={{ textAlign: 'left', margin: 0, paddingLeft: '20px' }}>
+                                            <li>Please arrive at least 5 minutes before your reservation time</li>
+                                            <li>Bring your vehicle identification and charging cable if required</li>
+                                            <li>Late arrival may result in reservation cancellation</li>
+                                            <li>You can view and manage your reservations in the app</li>
+                                        </ul>
+                                    }
+                                    type="warning"
+                                    showIcon
+                                    style={{ marginTop: '24px' }}
+                                />
                             </div>
                         )}
                     </Card>
@@ -451,6 +764,43 @@ const PaymentPage = () => {
                             </div>
 
                             <Divider />
+
+                            {/* Show reservation details if available */}
+                            {reservationData.vehicleType && (
+                                <>
+                                    <div>
+                                        <Text strong>Vehicle:</Text>
+                                        <br />
+                                        <Text>{reservationData.vehicleType}</Text>
+                                    </div>
+
+                                    <div>
+                                        <Text strong>License Plate:</Text>
+                                        <br />
+                                        <Text>{reservationData.licensePlate}</Text>
+                                    </div>
+
+                                    {reservationData.selectedChargingPoint && (
+                                        <div>
+                                            <Text strong>Charging Point:</Text>
+                                            <br />
+                                            <Text>
+                                                {availableChargingPoints.find(p => p.id === reservationData.selectedChargingPoint)?.name}
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    {reservationData.startTime && (
+                                        <div>
+                                            <Text strong>Start Time:</Text>
+                                            <br />
+                                            <Text>{dayjs(reservationData.startTime).format('MMM DD, HH:mm')}</Text>
+                                        </div>
+                                    )}
+
+                                    <Divider />
+                                </>
+                            )}
 
                             <div>
                                 <Text strong>Duration:</Text>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Space, Typography, message } from 'antd';
-import { EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag, Badge } from 'antd';
+import { EnvironmentOutlined, ReloadOutlined, HomeOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import MapComponent from '../../components/map';
 import ChargingStationList from '../../components/chargingstation-list';
@@ -14,6 +14,7 @@ const MapPage = () => {
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [selectedStation, setSelectedStation] = useState(null);
+    const [stationDetails, setStationDetails] = useState(null);
     const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Ho Chi Minh City
     const [mapZoom, setMapZoom] = useState(13);
 
@@ -23,6 +24,20 @@ const MapPage = () => {
     useEffect(() => {
         dispatch(fetchStations());
     }, [dispatch]);
+
+    // Pre-fetch detailed data for all stations to get real-time connector status
+    // Note: Disabled admin API calls due to 403 authentication errors
+    const preloadStationDetails = async () => {
+        console.log('Skipping admin API calls due to authentication restrictions');
+        console.log('Using data from ChargingStation endpoint instead');
+        // The ChargingStation endpoint already includes charging points data
+        // No additional API calls needed
+    };    // Pre-load station details when stations are loaded
+    useEffect(() => {
+        if (chargingStations.length > 0) {
+            preloadStationDetails(chargingStations);
+        }
+    }, [chargingStations]);
 
     // Note: Station filtering is now handled by ChargingStationList component
 
@@ -34,11 +49,22 @@ const MapPage = () => {
     };
 
     // Handle station selection
-    const handleStationSelect = (station) => {
+    const handleStationSelect = async (station) => {
         setSelectedStation(station);
         setMapCenter([station.lat, station.lng]);
         setMapZoom(16);
-    };
+
+        // Use the charging points data that's already available from the ChargingStation endpoint
+        console.log('Station selected:', station);
+        console.log('Available charging points:', station.chargingPoints);
+
+        // Set station details from the existing data (no admin API call needed)
+        setStationDetails({
+            ...station,
+            chargingPoints: station.chargingPoints || []
+        });
+    };    // Use the stations directly from Redux (they already include charging points data)
+    const enhancedStations = chargingStations;
 
     // Refresh stations
     const refreshStations = async () => {
@@ -52,9 +78,7 @@ const MapPage = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    // Get directions to station
+    };    // Get directions to station
     const getDirections = (station) => {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
         window.open(url, '_blank');
@@ -65,11 +89,32 @@ const MapPage = () => {
             case 'available':
                 return '#52c41a';
             case 'occupied':
+            case 'busy':
                 return '#faad14';
             case 'maintenance':
+            case 'offline':
                 return '#ff4d4f';
+            case 'reserved':
+                return '#1890ff';
             default:
                 return '#d9d9d9';
+        }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status.toLowerCase()) {
+            case 'available':
+                return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+            case 'occupied':
+            case 'busy':
+                return <ThunderboltOutlined style={{ color: '#faad14' }} />;
+            case 'maintenance':
+            case 'offline':
+                return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+            case 'reserved':
+                return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />;
+            default:
+                return <CloseCircleOutlined style={{ color: '#d9d9d9' }} />;
         }
     };
 
@@ -105,6 +150,14 @@ const MapPage = () => {
                                 >
                                     Refresh
                                 </Button>
+                                <Button
+                                    type="dashed"
+                                    size="small"
+                                    onClick={() => preloadStationDetails(chargingStations)}
+                                    loading={loading}
+                                >
+                                    Update Connectors
+                                </Button>
                             </Space>
                         </div>
                     </Card>
@@ -119,7 +172,7 @@ const MapPage = () => {
                             center={mapCenter}
                             zoom={mapZoom}
                             height="520px"
-                            markers={chargingStations}
+                            markers={enhancedStations}
                             onMapClick={handleMapClick}
                             showCurrentLocation={true}
                         />
@@ -129,7 +182,7 @@ const MapPage = () => {
                 {/* Charging Station List with Distance Sorting */}
                 <Col xs={24} lg={8}>
                     <ChargingStationList
-                        stations={chargingStations}
+                        stations={enhancedStations}
                         onStationSelect={handleStationSelect}
                         selectedStation={selectedStation}
                         searchText={searchText}
@@ -140,7 +193,7 @@ const MapPage = () => {
                 {/* Selected Station Details */}
                 {selectedStation && (
                     <Col span={24}>
-                        <Card title="Station Details">
+                        <Card title="Station Details" loading={loading}>
                             <Row gutter={[24, 16]}>
                                 <Col xs={24} md={12}>
                                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -183,11 +236,139 @@ const MapPage = () => {
                                         <div>
                                             <Text strong>Connector Types:</Text>
                                             <br />
-                                            <Text>{selectedStation.chargerTypes.join(', ')}</Text>
+                                            <Text>{selectedStation.chargerTypes?.join(', ')}</Text>
                                         </div>
                                     </Space>
                                 </Col>
                             </Row>
+
+                            {/* Charging Points Section */}
+                            {stationDetails?.chargingPoints && stationDetails.chargingPoints.length > 0 && (
+                                <>
+                                    <Row style={{ marginTop: '24px' }}>
+                                        <Col span={24}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text strong style={{ fontSize: '16px' }}>Available Charging Points:</Text>
+                                                <div style={{ fontSize: '12px' }}>
+                                                    <Tag color="success" size="small">Available</Tag>
+                                                    <Tag color="warning" size="small">Reserved</Tag>
+                                                    <Tag color="processing" size="small">Occupied</Tag>
+                                                    <Tag color="error" size="small">Offline</Tag>
+                                                </div>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
+                                        {stationDetails.chargingPoints.map((point, index) => (
+                                            <Col xs={24} sm={12} md={8} lg={6} key={point.pointId || index}>
+                                                <Card
+                                                    size="small"
+                                                    style={{
+                                                        borderColor: getStatusColor(point.status),
+                                                        borderWidth: '2px'
+                                                    }}
+                                                >
+                                                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Text strong>{point.name || `Point ${index + 1}`}</Text>
+                                                            <Badge
+                                                                status={point.status === 'available' ? 'success' :
+                                                                    point.status === 'occupied' || point.status === 'busy' ? 'warning' :
+                                                                        'error'}
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <Text type="secondary">Type:</Text>
+                                                            <br />
+                                                            <Tag
+                                                                color={
+                                                                    point.status === 'available' ? 'success' :
+                                                                        point.status === 'reserved' ? 'warning' :
+                                                                            point.status === 'offline' || point.status === 'maintenance' ? 'error' :
+                                                                                point.status === 'occupied' || point.status === 'busy' ? 'processing' :
+                                                                                    'default'
+                                                                }
+                                                            >
+                                                                {point.connectorType || point.type || 'Unknown'}
+                                                            </Tag>
+                                                        </div>                                                        <div>
+                                                            <Text type="secondary">Power:</Text>
+                                                            <br />
+                                                            <Text>{point.powerOutput || point.power || 'N/A'}</Text>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <div>
+                                                                <Text type="secondary">Status:</Text>
+                                                                <br />
+                                                                <Tag
+                                                                    color={
+                                                                        point.status === 'available' ? 'green' :
+                                                                            point.status === 'occupied' || point.status === 'busy' ? 'orange' :
+                                                                                point.status === 'reserved' ? 'blue' :
+                                                                                    'red'
+                                                                    }
+                                                                    icon={getStatusIcon(point.status)}
+                                                                >
+                                                                    {point.status || 'Unknown'}
+                                                                </Tag>
+                                                            </div>
+                                                        </div>
+
+                                                        {point.estimatedWaitTime && point.status !== 'available' && (
+                                                            <div>
+                                                                <Text type="secondary">Est. Wait:</Text>
+                                                                <br />
+                                                                <Text style={{ color: '#faad14' }}>{point.estimatedWaitTime}</Text>
+                                                            </div>
+                                                        )}
+                                                    </Space>
+                                                </Card>
+                                            </Col>
+                                        ))}
+                                    </Row>
+
+                                    {/* Summary Stats */}
+                                    <Row style={{ marginTop: '16px' }}>
+                                        <Col span={24}>
+                                            <Card size="small" style={{ backgroundColor: '#fafafa' }}>
+                                                <Row gutter={16} style={{ textAlign: 'center' }}>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#52c41a' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'available').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Available</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#faad14' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'occupied' || p.status === 'busy').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Occupied</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#1890ff' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'reserved').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Reserved</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#ff4d4f' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'offline' || p.status === 'maintenance').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Offline</Text>
+                                                    </Col>
+                                                </Row>
+                                            </Card>
+                                        </Col>
+                                    </Row>
+                                </>
+                            )}
+
                             <div style={{ marginTop: '24px' }}>
                                 <Space>
                                     <Button
@@ -202,12 +383,21 @@ const MapPage = () => {
                                         style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
                                         onClick={() => {
                                             // Navigate to payment page with station data
-                                            navigate('/payment', { state: { station: selectedStation } });
+                                            navigate('/payment', {
+                                                state: {
+                                                    station: selectedStation,
+                                                    stationDetails: stationDetails
+                                                }
+                                            });
                                         }}
+                                        disabled={!stationDetails?.chargingPoints?.some(p => p.status === 'available')}
                                     >
                                         Reserve Station
                                     </Button>
-                                    <Button onClick={() => setSelectedStation(null)}>
+                                    <Button onClick={() => {
+                                        setSelectedStation(null);
+                                        setStationDetails(null);
+                                    }}>
                                         Close Details
                                     </Button>
                                 </Space>
