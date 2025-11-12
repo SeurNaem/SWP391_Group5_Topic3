@@ -210,157 +210,13 @@ const PaymentPage = () => {
         setCurrentStep(1);
     };
 
-    // Debug function to test API authentication
-    const testApiAuthentication = async () => {
-        try {
-            console.log('=== API Authentication Test ===');
-
-            const token = localStorage.getItem("token");
-            const isGoogleToken = token?.startsWith('ya29.');
-
-            console.log('Token analysis:', {
-                exists: !!token,
-                length: token?.length,
-                type: isGoogleToken ? 'Google OAuth' : 'Backend JWT',
-                preview: token ? token.substring(0, 20) + '...' : 'No token',
-                isOffline: token === 'offline-admin-token'
-            });
-
-            console.log('Account from Redux:', account);
-
-            if (isGoogleToken) {
-                console.warn('⚠️ ISSUE DETECTED: Google OAuth token being used for backend APIs');
-                console.warn('This token works for some endpoints but not others.');
-                message.warning('Using Google OAuth token - some features may not work properly');
-            }
-
-            // Skip base URL test as /api/ returns 404 by design (no default endpoint)
-            console.log('ℹ️ Skipping base URL test - testing specific endpoints directly...');
-
-            // Test a simple API call
-            console.log('Testing wallet API...');
-            const walletResponse = await fetchWallets();
-            console.log('✅ Wallet API successful:', walletResponse);
-
-            // Test reservation endpoint with correct parameters
-            console.log('Testing reservation endpoint...');
-
-            try {
-                console.log('✅ Reservation API is now available!');
-                console.log('Testing POST /api/Reservation with correct payload...');
-
-                // Test reservation endpoint with minimal valid payload
-                // Try multiple point IDs to find an available one
-                const testPointIds = [1, 2, 3, 4, 5];
-                let testSuccess = false;
-                let lastError = null;
-
-                for (const pointId of testPointIds) {
-                    try {
-                        const testReservationPayload = {
-                            pointId: pointId
-                        };
-
-                        console.log(`Testing with pointId: ${pointId}`, testReservationPayload);
-
-                        const reservationResponse = await createReservation(testReservationPayload);
-                        console.log('✅ Reservation API successful:', reservationResponse);
-                        message.success(`All API tests passed! Reservation system is working with pointId: ${pointId}`);
-                        testSuccess = true;
-                        break;
-                    } catch (pointError) {
-                        lastError = pointError;
-                        if (pointError.response?.status === 400 && pointError.response?.data?.includes('not available')) {
-                            console.log(`⚠️ PointId ${pointId} not available, trying next...`);
-                            continue;
-                        } else {
-                            // Different type of error, break and handle below
-                            throw pointError;
-                        }
-                    }
-                }
-
-                if (!testSuccess) {
-                    throw lastError;
-                }
-
-            } catch (reservationError) {
-                console.error('❌ Reservation API test failed:', reservationError);
-                console.error('Full error details:', {
-                    status: reservationError.response?.status,
-                    statusText: reservationError.response?.statusText,
-                    data: reservationError.response?.data,
-                    headers: reservationError.response?.headers,
-                    url: reservationError.config?.url,
-                    method: reservationError.config?.method,
-                    requestHeaders: reservationError.config?.headers
-                });
-
-                if (reservationError.response?.status === 404) {
-                    message.error('Charging point not found. Use a valid pointId.');
-                } else if (reservationError.response?.status === 400) {
-                    const errorMsg = reservationError.response?.data || 'Bad request';
-                    if (errorMsg.includes('not available')) {
-                        message.warning(`✅ API is working! Error: ${errorMsg}. This means the reservation endpoint is functional but no test charging points are available.`);
-                    } else {
-                        message.error(`Bad request - ${errorMsg}`);
-                    }
-                } else if (reservationError.response?.status === 401 && !isGoogleToken) {
-                    message.error('Authentication failed with backend JWT token. Check token validity or user permissions.');
-                } else if (reservationError.response?.status === 401 && isGoogleToken) {
-                    message.error('Token type mismatch: Reservation API requires backend JWT, but you have Google OAuth token. Please log in with backend credentials.');
-                } else if (reservationError.response?.status === 409) {
-                    message.error('Conflict: Charging point may already be reserved.');
-                } else {
-                    message.warning(`Wallet API works, but Reservation API failed: ${reservationError.response?.status} ${reservationError.response?.statusText || 'Unknown error'}`);
-                }
-            }
-        } catch (error) {
-            console.error('API authentication test failed:', error);
-
-            if (error.response?.status === 401) {
-                message.error('Authentication failed - Invalid or expired token. Try logging in again.');
-            } else if (error.response?.status === 403) {
-                message.error('Access denied - Insufficient permissions');
-            } else if (error.response?.status === 404) {
-                message.error('API endpoint not found - Backend may not be properly configured');
-            } else {
-                message.error(`API test failed: ${error.message}`);
-            }
-        }
-    };
-
-    // Add a test mode to bypass API calls for UI testing
-    const [testMode, setTestMode] = useState(false);
-
     const handlePayment = async () => {
         try {
             setLoading(true);
 
-            // TEST MODE: Skip API calls and go directly to success screen
-            if (testMode) {
-                message.success('Test Mode: Simulating successful payment');
-                setCreatedReservation({
-                    reservationId: 'TEST-' + Date.now(),
-                    status: 'test_mode'
-                });
-                setCurrentStep(3);
-                return;
-            }
-
-            // Debug: Check authentication and station data
+            // Check authentication and station data
             const token = localStorage.getItem("token");
             const isGoogleToken = token?.startsWith('ya29.');
-
-            console.log('Authentication check:', {
-                hasToken: !!token,
-                tokenType: isGoogleToken ? 'Google OAuth' : 'Backend JWT',
-                tokenLength: token?.length,
-                hasAccount: !!account,
-                accountId: account?.id,
-                stationData: stationData,
-                reservationData: reservationData
-            });
 
             if (!token || !account) {
                 message.error('Please log in to make a reservation.');
@@ -369,7 +225,6 @@ const PaymentPage = () => {
             }
 
             if (isGoogleToken) {
-                console.warn('⚠️ Google OAuth token detected - reservation may fail');
                 message.warning('You are logged in with Google. Reservation functionality may be limited. Consider logging in with backend credentials.');
             }
 
@@ -387,7 +242,8 @@ const PaymentPage = () => {
             }
 
             // Validate station data
-            if (!stationData.stationId) {
+            // Validate station data
+            if (!stationData.stationId && !stationData.id && !stationData.station_id) {
                 message.error('Invalid station data. Please select a station again.');
                 navigate('/map');
                 return;
@@ -395,7 +251,6 @@ const PaymentPage = () => {
 
             // Skip availability check for now since the API endpoint may not be implemented
             // This is a temporary workaround until the backend implements the availability check endpoint
-            console.log('Skipping availability check - proceeding with reservation creation');
 
             // Validate wallet balance if using wallet payment
             if (paymentMethod === 'wallet') {
@@ -435,44 +290,20 @@ const PaymentPage = () => {
                 pointId: reservationData.selectedChargingPoint
             };
 
-            console.log('Creating reservation with correct API payload:', reservationPayload);
-            console.log('API expects: { pointId: number } - all other fields are handled by the backend');
-
             let reservation = null;
             try {
-                console.log('=== Creating Real Charging Reservation ===');
-                console.log('Calling POST /api/Reservation with payload:', reservationPayload);
-
                 // Call the actual backend API
-                reservation = await createReservation(reservationPayload);
-
-                console.log('✅ Reservation created successfully:', reservation);
-                setCreatedReservation(reservation);
-                message.success('Payment completed! Your charging session has been reserved.');
-                console.log('🔧 DEBUG: About to set currentStep to 3');
-                console.log('🔧 DEBUG: Current step before change:', currentStep);
-                console.log('🔧 DEBUG: Setting step to 3 in 100ms to ensure state update...');
-
-                // Use setTimeout to ensure state update happens after current execution
-                setTimeout(() => {
-                    setCurrentStep(3); // Move to confirmation step
-                    console.log('🔧 DEBUG: setCurrentStep(3) executed via setTimeout');
-                }, 100);
-
-            } catch (error) {
-                console.error('=== Reservation Creation Failed ===');
-                console.error('Error details:', {
-                    message: error.message,
-                    status: error.response?.status,
-                    statusText: error.response?.statusText,
-                    data: error.response?.data,
-                    config: error.config
+                reservation = await createReservation(reservationPayload);                // Set both states together using React's batching
+                React.startTransition(() => {
+                    setCreatedReservation(reservation);
+                    setCurrentStep(3);
                 });
 
+                message.success('Payment completed! Your charging session has been reserved.');
+            } catch (error) {
                 // Handle different error cases
                 if (error.response?.status === 400) {
                     message.error('Invalid reservation data. Please check your selection and try again.');
-                    console.error('Validation failed - check if pointId is valid and charging point is available');
                 } else if (error.response?.status === 401) {
                     message.error('Authentication required. Please log in and try again.');
                 } else if (error.response?.status === 404) {
@@ -492,29 +323,13 @@ const PaymentPage = () => {
                     paymentStatus: 'completed',
                     note: 'Payment was successful but reservation creation failed.'
                 };
-                setCreatedReservation(reservation);
-                console.log('🔧 DEBUG: Fallback reservation created:', reservation);
-                console.log('🔧 DEBUG: About to set currentStep to 3 (error case)');
-                setCurrentStep(3); // Still show confirmation with error details
-                console.log('🔧 DEBUG: setCurrentStep(3) called for error case');
+
+                // Set both states together for error case too
+                React.startTransition(() => {
+                    setCreatedReservation(reservation);
+                    setCurrentStep(3);
+                });
             }
-
-            // TODO: Add manual redirect button instead of automatic redirect
-            console.log('🔧 DEBUG: Reservation process completed successfully');
-            console.log('🔧 DEBUG: User can now see confirmation screen and navigate manually');
-
-            // Temporary: Disable automatic redirect to allow user to see confirmation
-            // setTimeout(() => {
-            //     navigate('/map', {
-            //         state: {
-            //             paymentSuccess: true,
-            //             reservedStation: stationData,
-            //             reservation: reservation,
-            //             paymentMethod: paymentMethod,
-            //             amountPaid: estimatedCost
-            //         }
-            //     });
-            // }, 5000); // Increased time to show reservation details
 
         } catch (error) {
             console.error('Payment/Reservation error:', error);
@@ -575,15 +390,6 @@ const PaymentPage = () => {
         }
     ];
 
-    // Debug logging
-    console.log('🔧 RENDER DEBUG:', {
-        currentStep,
-        createdReservation: !!createdReservation,
-        reservationData,
-        loading,
-        testMode
-    });
-
     return (
         <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
             <Row gutter={[24, 24]} justify="center">
@@ -606,40 +412,6 @@ const PaymentPage = () => {
                                     </Title>
                                     <Text type="secondary">Complete your reservation and payment</Text>
                                 </div>
-                            </div>
-
-                            {/* Test Mode Toggle for Development */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Text type="secondary">Test Mode:</Text>
-                                <Button
-                                    size="small"
-                                    type={testMode ? "primary" : "default"}
-                                    onClick={() => setTestMode(!testMode)}
-                                >
-                                    {testMode ? "ON" : "OFF"}
-                                </Button>
-                                <Button
-                                    size="small"
-                                    onClick={testApiAuthentication}
-                                    style={{ marginLeft: '8px' }}
-                                >
-                                    🔧 Test API
-                                </Button>
-                                <Button
-                                    size="small"
-                                    onClick={() => {
-                                        console.log('🔧 Manual confirmation test - setting step to 3');
-                                        setCreatedReservation({
-                                            reservationId: 'MANUAL-TEST-' + Date.now(),
-                                            status: 'manual_test'
-                                        });
-                                        setCurrentStep(3);
-                                    }}
-                                    style={{ marginLeft: '8px' }}
-                                    type="dashed"
-                                >
-                                    🧪 Test Confirmation
-                                </Button>
                             </div>
                         </div>
                     </Card>
@@ -864,16 +636,6 @@ const PaymentPage = () => {
 
                         {currentStep === 2 && (
                             <div>
-                                {testMode && (
-                                    <Alert
-                                        message="TEST MODE ACTIVE"
-                                        description="API calls will be bypassed and success screen will be shown immediately."
-                                        type="warning"
-                                        showIcon
-                                        style={{ marginBottom: '24px' }}
-                                    />
-                                )}
-
                                 {(() => {
                                     const token = localStorage.getItem("token");
                                     const isGoogleToken = token?.startsWith('ya29.');
@@ -975,19 +737,14 @@ const PaymentPage = () => {
                                             loading={loading}
                                             onClick={handlePayment}
                                             disabled={
-                                                !testMode && (
-                                                    (paymentMethod === 'wallet' && walletData && walletData.balance < estimatedCost) ||
-                                                    !reservationData.selectedChargingPoint ||
-                                                    estimatedCost <= 0
-                                                )
+                                                (paymentMethod === 'wallet' && walletData && walletData.balance < estimatedCost) ||
+                                                !reservationData.selectedChargingPoint ||
+                                                estimatedCost <= 0
                                             }
                                         >
-                                            {testMode ?
-                                                'TEST: Go to Success Screen' :
-                                                (estimatedCost > 0 ?
-                                                    `Pay $${estimatedCost.toFixed(2)} & Reserve` :
-                                                    'Select charging point to continue'
-                                                )
+                                            {estimatedCost > 0 ?
+                                                `Pay $${estimatedCost.toFixed(2)} & Reserve` :
+                                                'Select charging point to continue'
                                             }
                                         </Button>
                                     </Space>
@@ -1005,24 +762,12 @@ const PaymentPage = () => {
                                 margin: '20px 0',
                                 minHeight: '400px'
                             }}>
-                                {console.log('🔧 CONFIRMATION SCREEN RENDERING!', { currentStep, createdReservation })}
                                 <div style={{
                                     backgroundColor: '#fff',
                                     padding: '20px',
                                     borderRadius: '8px',
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                                 }}>
-                                    <div style={{
-                                        backgroundColor: '#fffbe6',
-                                        border: '1px solid #fadb14',
-                                        padding: '16px',
-                                        borderRadius: '8px',
-                                        marginBottom: '20px'
-                                    }}>
-                                        <Text strong style={{ fontSize: '16px', color: '#d46b08' }}>
-                                            🔧 DEBUG: Confirmation screen is rendering successfully! 🔧
-                                        </Text>
-                                    </div>
                                     <CheckCircleOutlined
                                         style={{ fontSize: '64px', color: '#52c41a', marginBottom: '16px' }}
                                     />
@@ -1118,7 +863,6 @@ const PaymentPage = () => {
                                     message="Important Reminders"
                                     description={
                                         <ul style={{ textAlign: 'left', margin: 0, paddingLeft: '20px' }}>
-                                            <li>Please arrive at least 5 minutes before your reservation time</li>
                                             <li>Bring your vehicle identification and charging cable if required</li>
                                             <li>Late arrival may result in reservation cancellation</li>
                                             <li>You can view and manage your reservations in the app</li>
