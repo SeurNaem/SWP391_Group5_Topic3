@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag } from 'antd';
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag, Badge } from 'antd';
 import { EnvironmentOutlined, ReloadOutlined, HomeOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import MapComponent from '../../components/map';

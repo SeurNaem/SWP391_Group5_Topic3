@@ -2,25 +2,16 @@ import React, { useState } from "react";
 import {
   Form,
   Input,
-  Checkbox,
   Button,
   Card,
-  Divider,
-  Row,
-  Col,
   message,
 } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
-import { FaGoogle, FaGithub } from "react-icons/fa";
 import api from "../../config/axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-// If using AntD v5, remember to import base reset once in your app root:
-// import "antd/dist/reset.css";
 import { useDispatch } from "react-redux";
 import { login } from "../../redux/accountSlice";
-import { GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
-import { auth } from "../../config/firebase";
 import logo from "../../assets/logo.png";
 
 const LoginPage = () => {
@@ -144,96 +135,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleLoginGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    setIsLoading(true);
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential.accessToken;
-      const user = result.user;
-
-      console.log("Google login successful:", user);
-      console.log("Access token:", token);
-
-      // Store user data in localStorage (similar to regular login)
-      const userData = {
-        fullName: user.displayName,
-        email: user.email,
-        avatar: user.photoURL,
-        role: "USER", // Default role for Google users
-        token: token // Use Google token or you might want to exchange it for your backend token
-      };
-
-      localStorage.setItem("token", token);
-
-      // Update Redux state
-      dispatch(login(userData));
-
-      // Show success message
-      toast.success("Successfully logged in with Google!");
-
-      // Navigate to home page (or dashboard if admin)
-      navigate("/");
-
-    } catch (error) {
-      console.error("Google login error:", {
-        code: error.code,
-        message: error.message,
-        email: error.customData?.email
-      });
-      message.error("Google login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  const handleLoginGithub = async () => {
-    const provider = new GithubAuthProvider();
-    setIsLoading(true);
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const credential = GithubAuthProvider.credentialFromResult(result);
-      const token = credential.accessToken;
-      const user = result.user;
-
-      console.log("GitHub login successful:", user);
-      console.log("Access token:", token);
-
-      // Store user data in localStorage (similar to regular login)
-      const userData = {
-        fullName: user.displayName || user.email.split('@')[0], // Use email prefix if no display name
-        email: user.email,
-        avatar: user.photoURL,
-        role: "USER", // Default role for GitHub users
-        token: token // Use GitHub token or you might want to exchange it for your backend token
-      };
-
-      localStorage.setItem("token", token);
-
-      // Update Redux state
-      dispatch(login(userData));
-
-      // Show success message
-      toast.success("Successfully logged in with GitHub!");
-
-      // Navigate to home page (or dashboard if admin)
-      navigate("/");
-
-    } catch (error) {
-      console.error("GitHub login error:", {
-        code: error.code,
-        message: error.message,
-        email: error.customData?.email
-      });
-      message.error("GitHub login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center relative" style={{
       background: 'radial-gradient(circle at center, #87ceeb 0%, #4fc3f7 50%, #29b6f6 100%)'
@@ -244,15 +145,15 @@ const LoginPage = () => {
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
-        <Card style={{ borderRadius: 16 }} bodyStyle={{ padding: 24 }}>
-          <div className="text-center mb-4">
+        <Card style={{ borderRadius: 16 }} bodyStyle={{ padding: 16 }}>
+          <div className="text-center mb-3">
             <img
               src={logo}
               alt="EV Charging Station Logo"
               style={{
-                height: '60px',
+                height: '50px',
                 width: 'auto',
-                marginBottom: '16px'
+                marginBottom: '12px'
               }}
             />
             <h2 className="text-2xl font-bold">Welcome Back</h2>
@@ -262,7 +163,6 @@ const LoginPage = () => {
           <Form
             form={form}
             layout="vertical"
-            initialValues={{ rememberMe: false }}
             onFinish={onFinish}
             requiredMark={false}
           >
@@ -296,19 +196,6 @@ const LoginPage = () => {
               />
             </Form.Item>
 
-            <Row justify="space-between" align="middle">
-              <Col>
-                <Form.Item name="rememberMe" valuePropName="checked" noStyle>
-                  <Checkbox>Remember me</Checkbox>
-                </Form.Item>
-              </Col>
-              <Col>
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  Forgot your password?
-                </a>
-              </Col>
-            </Row>
-
             <Form.Item style={{ marginTop: 8 }}>
               <Button
                 type="primary"
@@ -320,31 +207,6 @@ const LoginPage = () => {
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
             </Form.Item>
-
-            <Divider>Or continue with</Divider>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="default"
-                block
-                icon={<FaGoogle />}
-                onClick={handleLoginGoogle}
-                loading={isLoading}
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Google"}
-              </Button>
-              <Button
-                type="default"
-                block
-                icon={<FaGithub />}
-                onClick={handleLoginGithub}
-                loading={isLoading}
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "GitHub"}
-              </Button>
-            </div>
           </Form>
         </Card>
       </div>

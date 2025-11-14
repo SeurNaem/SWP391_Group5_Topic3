@@ -123,14 +123,14 @@ export const getReservationById = async (reservationId) => {
  * @param {number} sessionData.pointId - Charging point ID  
  * @param {number} sessionData.reservationId - Reservation ID
  * @param {number} sessionData.vehicleId - Vehicle ID (optional, can be 0)
- * @param {number} sessionData.hours - Duration in hours for auto-stop
+ * @param {number} sessionData.minutes - Duration in minutes for auto-stop
  * @param {string} sessionData.paymentMethod - Payment method
  * @returns {Promise} Promise object represents the started session data
  */
 export const startSession = async (sessionData) => {
   try {
     console.log("API: Calling POST Staff/session/start with data:", sessionData);
-    console.log("API: Session will auto-stop after", sessionData.hours, "hours");
+    console.log("API: Session will auto-stop after", sessionData.minutes, "minutes");
     const response = await api.post("Staff/session/start", sessionData);
     console.log("API: Session start successful, response:", response);
     return response.data;

@@ -272,17 +272,18 @@ const ChargingPointsPage = () => {
       }
 
       // Prepare session data with all fields from reservation
+      const durationHours = matchingReservation.duration || 2;
       const sessionData = {
         userId: matchingReservation.userId,           // Fetch from reservation
         pointId: matchingReservation.pointId,         // Fetch from reservation
         reservationId: matchingReservation.reservationId, // Fetch from reservation
         vehicleId: 0,                                 // Keep as 0
-        hours: matchingReservation.duration || 2,     // Duration for auto-stop (from user selection)
+        minutes: durationHours * 60,                  // Convert hours to minutes as API expects minutes
         paymentMethod: matchingReservation.paymentMethod || "banking" // e-wallet or banking
       };
 
       console.log("Step 5: Prepared session data with duration:", sessionData);
-      console.log("Step 5a: Auto-stop will trigger after", sessionData.hours, "hours");
+      console.log("Step 5a: Auto-stop will trigger after", durationHours, "hours (", sessionData.minutes, "minutes)");
       console.log("Step 6: Calling startSession API...");
       // Start the session - this will change status from "reserved" to "in use"
       const response = await startSession(sessionData);
@@ -301,9 +302,9 @@ const ChargingPointsPage = () => {
           sessionId: sessionId,
           pointId: point.pointId,
           paymentMethod: sessionData.paymentMethod,
-          duration: sessionData.hours, // Duration from user selection
+          duration: durationHours, // Duration from user selection (in hours for display)
           startTime: new Date().toISOString(), // Current time as start time
-          endTime: new Date(Date.now() + (sessionData.hours * 60 * 60 * 1000)).toISOString(), // Expected end time
+          endTime: new Date(Date.now() + (durationHours * 60 * 60 * 1000)).toISOString(), // Expected end time
           vehicleType: matchingReservation.vehicleType,
           licensePlate: matchingReservation.licensePlate,
           maxPower: point.maxPower || 25, // For energy calculation
