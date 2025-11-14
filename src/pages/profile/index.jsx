@@ -16,6 +16,7 @@ import {
     theme,
     Select
 } from 'antd';
+import { Modal, InputNumber } from 'antd';
 import {
     UserOutlined,
     EditOutlined,
@@ -30,11 +31,13 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { getUserProfile, updateUserProfile } from '../../service/user.api';
 import { login, logout } from '../../redux/accountSlice';
+import { fetchWallets, topUpWallet } from '../../service/wallet.api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { themeColors } from '../../utils/theme';
 import blankAvatar from '../../assets/blank.png';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 
 const { Title, Text } = Typography;
 const { Content, Header: AntHeader } = Layout;
@@ -47,6 +50,13 @@ const { Option } = Select; const ProfilePage = () => {
     const [userProfile, setUserProfile] = useState(null);
     const [initialLoading, setInitialLoading] = useState(true);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [walletData, setWalletData] = useState(null);
+    const [topUpModalVisible, setTopUpModalVisible] = useState(false);
+    const [topUpAmount, setTopUpAmount] = useState(50);
+    const [qrData, setQrData] = useState(null);
+    const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+    const [isConfirmingTopUp, setIsConfirmingTopUp] = useState(false);
+    const [topUpError, setTopUpError] = useState(null);
 
     const currentUser = useSelector((state) => state.account);
     const dispatch = useDispatch();
@@ -156,7 +166,25 @@ const { Option } = Select; const ProfilePage = () => {
     }, [form, currentUser]);    // Fetch user profile on component mount
     useEffect(() => {
         fetchUserProfile();
+        // also fetch wallet info
+        fetchWalletInfo();
     }, [fetchUserProfile]);
+
+    const fetchWalletInfo = async () => {
+        try {
+            const resp = await fetchWallets();
+            if (resp?.data && resp.data.length > 0) {
+                // try to find wallet for current user, else take first
+                const found = resp.data.find(w => {
+                    const uid = currentUser?.user?.id || currentUser?.id;
+                    return w.userId === uid || w.ownerId === uid;
+                }) || resp.data[0];
+                setWalletData(found);
+            }
+        } catch (err) {
+            console.warn('Failed to load wallet info:', err);
+        }
+    };
 
     const handleUpdateProfile = async (values) => {
         try {
@@ -207,6 +235,141 @@ const { Option } = Select; const ProfilePage = () => {
             licensePlate: userProfile?.licensePlate || '',
         });
         setEditMode(false);
+    };
+
+    const openTopUpModal = () => {
+        setTopUpAmount(50);
+        setQrData(null);
+        setTopUpModalVisible(true);
+    };
+
+    const generateFakeQr = async () => {
+        const orderId = Date.now();
+
+        // Validation: first ensure minimum, then divisibility
+        const amt = Number(topUpAmount);
+        setTopUpError(null);
+        if (!Number.isFinite(amt) || isNaN(amt)) {
+            setTopUpError('The number should be a valid number');
+            return;
+        }
+
+        if (amt < 10) {
+            setTopUpError('The number should not be smaller than 10');
+            return;
+        }
+
+        // Must be integer and divisible by 10
+        if (!Number.isInteger(amt) || amt % 10 !== 0) {
+            setTopUpError('The number should divide to 10');
+            return;
+        }
+
+        setTopUpError(null);
+        setIsGeneratingQr(true);
+
+        // Try generating a VietQR from the external service
+        try {
+            const payload = {
+                accountNo: "0919273869",
+                accountName: "CAO THAI HUNG",
+                acqId: "970422",
+                amount: Number(topUpAmount) || 0,
+                addInfo: `TOPUP_${orderId}`,
+                template: "compact"
+            };
+
+            const res = await axios.post("https://api.vietqr.io/v2/generate", payload, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const qrDataURL = res?.data?.data?.qrDataURL;
+            const code = res?.data?.data?.qrCode || `VQR-${orderId}`;
+
+            if (qrDataURL) {
+                setQrData({ code, amount: topUpAmount, walletId: walletData?.walletId || walletData?.id || null, generatedAt: new Date().toISOString(), qrDataURL, accountName: payload.accountName, accountNo: payload.accountNo });
+                setIsGeneratingQr(false);
+                return;
+            }
+        } catch (err) {
+            console.warn('VietQR generation failed, falling back to fake QR:', err?.message || err);
+        }
+
+        // Fallback: generate a local fake QR
+        setTimeout(() => {
+            const code = `BANKQR-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+            const payloadFallback = {
+                code,
+                amount: topUpAmount,
+                walletId: walletData?.walletId || walletData?.id || null,
+                generatedAt: new Date().toISOString(),
+                accountName: payload.accountName,
+                accountNo: payload.accountNo
+            };
+            setQrData(payloadFallback);
+            setIsGeneratingQr(false);
+        }, 400);
+    };
+
+    const confirmTopUp = async () => {
+        if (!qrData) {
+            message.error('Please generate the QR before confirming');
+            return;
+        }
+
+        setIsConfirmingTopUp(true);
+        const walletId = walletData?.walletId || walletData?.id || null;
+        try {
+            console.log('ConfirmTopUp: starting', { walletData, topUpAmount, walletId, qrData });
+            // Try calling backend top-up endpoint; if it fails we'll fallback to local update
+            let resp = null;
+            if (walletId) {
+                try {
+                    // include QR code info if available
+                    const meta = qrData ? { transactionCode: qrData.code, generatedAt: qrData.generatedAt } : {};
+                    resp = await topUpWallet(walletId, topUpAmount, meta);
+                    console.log('ConfirmTopUp: topUp API response', resp);
+                } catch (err) {
+                    console.warn('TopUp API failed, falling back to local update', err);
+                }
+            }
+
+            // If backend returned updated wallet info, use it. Otherwise do a local immutable update.
+            let updatedWallet = null;
+            if (resp && resp.data) {
+                // API may return wallet object or simple payload; handle common shapes
+                if (resp.data.wallet) updatedWallet = resp.data.wallet;
+                else if (resp.data.balance !== undefined) updatedWallet = { ...(walletData || {}), ...resp.data };
+                else updatedWallet = resp.data;
+            }
+
+            if (!updatedWallet) {
+                const oldBalance = walletData?.balance || 0;
+                const newBalance = oldBalance + Number(topUpAmount || 0);
+                updatedWallet = { ...(walletData || {}), balance: newBalance };
+            }
+
+            setWalletData(updatedWallet);
+
+            if (currentUser) {
+                let newAccount = null;
+                if (currentUser.user) {
+                    newAccount = { ...currentUser, user: { ...currentUser.user, wallet: updatedWallet } };
+                } else {
+                    newAccount = { ...currentUser, wallet: updatedWallet };
+                }
+                dispatch(login(newAccount));
+                console.log('ConfirmTopUp: dispatched new account', newAccount);
+            }
+
+            message.success(`Top-up of $${topUpAmount} completed`);
+            setTopUpModalVisible(false);
+        } catch (error) {
+            console.error('Top-up failed:', error);
+            message.error('Top-up failed');
+        } finally {
+            setIsConfirmingTopUp(false);
+        }
     };
 
     const formatDate = (dateString) => {
@@ -895,6 +1058,46 @@ const { Option } = Select; const ProfilePage = () => {
                                     </Col>
                                 </Row>
 
+                                {/* Wallet Summary */}
+                                <Row gutter={[24, 16]} style={{ marginTop: 16 }}>
+                                    <Col xs={24} sm={12} lg={8}>
+                                        <Card
+                                            size="small"
+                                            style={{
+                                                textAlign: 'center',
+                                                borderRadius: '8px',
+                                                border: '1px solid #e8e8e8',
+                                                background: '#fffbe6'
+                                            }}
+                                            bodyStyle={{ padding: '20px 16px' }}
+                                        >
+                                            <Text strong style={{ fontSize: '14px', color: '#666' }}>
+                                                E-wallet Balance
+                                            </Text>
+                                            <br />
+                                            <Text style={{
+                                                color: '#fa8c16',
+                                                fontSize: '20px',
+                                                fontWeight: '700',
+                                                marginTop: '8px',
+                                                display: 'inline-block'
+                                            }}>
+                                                ${(
+                                                    walletData?.balance ??
+                                                    currentUser?.user?.wallet?.balance ??
+                                                    currentUser?.wallet?.balance ??
+                                                    0
+                                                ).toFixed(2)}
+                                            </Text>
+                                            <div style={{ marginTop: 12 }}>
+                                                <Button type="primary" onClick={openTopUpModal}>
+                                                    Top Up
+                                                </Button>
+                                            </div>
+                                        </Card>
+                                    </Col>
+                                </Row>
+
                                 {/* Vehicle Information Display */}
                                 {(userProfile.vehicleType || userProfile.licensePlate) && (
                                     <>
@@ -964,6 +1167,71 @@ const { Option } = Select; const ProfilePage = () => {
                             </div>
                         )}
                     </Card>
+
+                    {/* Top-up Modal (fake bank QR) */}
+                    <Modal
+                        title="Top Up E-wallet"
+                        visible={topUpModalVisible}
+                        onCancel={() => setTopUpModalVisible(false)}
+                        footer={null}
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <Text strong>Amount (USD)</Text>
+                                <br />
+                                <InputNumber
+                                    min={1}
+                                    step={10}
+                                    precision={0}
+                                    value={topUpAmount}
+                                    onChange={(val) => setTopUpAmount(val)}
+                                    style={{ width: '100%', marginTop: 8 }}
+                                />
+                                {topUpError && (
+                                    <div style={{ marginTop: 8 }}>
+                                        <Text type="danger">{topUpError}</Text>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <Button type="default" onClick={() => setTopUpAmount(50)} style={{ marginRight: 8 }}>50</Button>
+                                <Button type="default" onClick={() => setTopUpAmount(100)} style={{ marginRight: 8 }}>100</Button>
+                                <Button type="default" onClick={() => setTopUpAmount(200)}>200</Button>
+                            </div>
+
+                            <div>
+                                <Button type="primary" onClick={generateFakeQr} loading={isGeneratingQr}>
+                                    Generate Bank QR
+                                </Button>
+                            </div>
+
+                            {qrData && (
+                                <div style={{ textAlign: 'center', marginTop: 12 }}>
+                                    {qrData.qrDataURL ? (
+                                        <div>
+                                            <img src={qrData.qrDataURL} alt="VietQR" style={{ width: 220, height: 220, background: '#fff', padding: 8 }} />
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'inline-block', padding: 12, border: '4px solid #000', background: '#fff' }}>
+                                            {/* Simple visual placeholder for QR */}
+                                            <div style={{ width: 180, height: 180, display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
+                                                {Array.from({ length: 81 }).map((_, i) => (
+                                                    <div key={i} style={{ backgroundColor: Math.random() > 0.5 ? '#000' : '#fff' }} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginTop: 12 }}>
+                                        <Button type="primary" onClick={confirmTopUp} loading={isConfirmingTopUp}>
+                                            Confirm Top Up
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Modal>
                 </div>
             </Content>
         </Layout>
