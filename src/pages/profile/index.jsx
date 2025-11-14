@@ -13,7 +13,8 @@ import {
     Divider,
     Space,
     Layout,
-    theme
+    theme,
+    Select
 } from 'antd';
 import {
     UserOutlined,
@@ -23,7 +24,8 @@ import {
     MailOutlined,
     PhoneOutlined,
     CalendarOutlined,
-    LogoutOutlined
+    LogoutOutlined,
+    CarOutlined
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { getUserProfile, updateUserProfile } from '../../service/user.api';
@@ -35,7 +37,8 @@ import blankAvatar from '../../assets/blank.png';
 import { createPortal } from 'react-dom';
 
 const { Title, Text } = Typography;
-const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
+const { Content, Header: AntHeader } = Layout;
+const { Option } = Select; const ProfilePage = () => {
     console.log('=== PROFILE PAGE COMPONENT LOADING ===');
 
     const [form] = Form.useForm();
@@ -52,6 +55,16 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
     const {
         token: { colorBgContainer },
     } = theme.useToken();
+
+    // Vehicle type options
+    const vehicleTypes = [
+        { value: 'electric_car', label: 'Electric Car' },
+        { value: 'hybrid_car', label: 'Hybrid Car' },
+        { value: 'electric_motorcycle', label: 'Electric Motorcycle' },
+        { value: 'electric_scooter', label: 'Electric Scooter' },
+        { value: 'electric_bus', label: 'Electric Bus' },
+        { value: 'electric_van', label: 'Electric Van' }
+    ];
 
     console.log('Profile component mounted, currentUser:', currentUser);
 
@@ -100,6 +113,8 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                     phoneNumber: response.phoneNumber || '',
                     address: response.address || '',
                     dateOfBirth: response.dateOfBirth || '',
+                    vehicleType: response.vehicleType || '',
+                    licensePlate: response.licensePlate || '',
                 });
             } catch (apiError) {
                 console.log('API call failed, using mock data:', apiError);
@@ -113,6 +128,8 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                     dateOfBirth: '1990-01-01',
                     avatar: currentUser?.avatar || '',
                     role: currentUser?.role || 'USER',
+                    vehicleType: 'electric_car',
+                    licensePlate: '29A-123.45',
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: new Date().toISOString()
                 };
@@ -126,6 +143,8 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                     phoneNumber: mockProfile.phoneNumber,
                     address: mockProfile.address,
                     dateOfBirth: mockProfile.dateOfBirth,
+                    vehicleType: mockProfile.vehicleType,
+                    licensePlate: mockProfile.licensePlate,
                 });
             }
         } catch (error) {
@@ -148,6 +167,8 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                 phoneNumber: values.phoneNumber,
                 address: values.address,
                 dateOfBirth: values.dateOfBirth,
+                vehicleType: values.vehicleType,
+                licensePlate: values.licensePlate,
             };
 
             const response = await updateUserProfile(updateData);
@@ -182,6 +203,8 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
             phoneNumber: userProfile?.phoneNumber || '',
             address: userProfile?.address || '',
             dateOfBirth: userProfile?.dateOfBirth || '',
+            vehicleType: userProfile?.vehicleType || '',
+            licensePlate: userProfile?.licensePlate || '',
         });
         setEditMode(false);
     };
@@ -694,6 +717,61 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                                 </Col>
                             </Row>
 
+                            {/* Vehicle Information Section */}
+                            <Divider orientation="left" style={{ margin: '32px 0 24px 0', fontSize: '16px', fontWeight: '600' }}>
+                                Vehicle Information
+                            </Divider>
+
+                            <Row gutter={[32, 24]} style={{ marginBottom: '16px' }}>
+                                <Col xs={24} lg={12}>
+                                    <Form.Item
+                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Vehicle Type</span>}
+                                        name="vehicleType"
+                                        style={{ marginBottom: '24px' }}
+                                    >
+                                        <Select
+                                            placeholder="Select your vehicle type"
+                                            size="large"
+                                            style={{
+                                                borderRadius: '8px'
+                                            }}
+                                            suffixIcon={<CarOutlined style={{ color: '#bfbfbf' }} />}
+                                        >
+                                            {vehicleTypes.map(type => (
+                                                <Option key={type.value} value={type.value}>
+                                                    {type.label}
+                                                </Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+
+                                <Col xs={24} lg={12}>
+                                    <Form.Item
+                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>License Plate Number</span>}
+                                        name="licensePlate"
+                                        rules={[
+                                            {
+                                                pattern: /^\d{2}[A-Z]-\d{3}\.\d{2}$/,
+                                                message: 'Please enter valid format: DDLL-DDD.DD (e.g., 29A-123.45)'
+                                            }
+                                        ]}
+                                        style={{ marginBottom: '24px' }}
+                                    >
+                                        <Input
+                                            prefix={<CarOutlined style={{ color: '#bfbfbf' }} />}
+                                            placeholder="e.g., 29A-123.45"
+                                            size="large"
+                                            style={{
+                                                borderRadius: '8px',
+                                                height: '48px'
+                                            }}
+                                            maxLength={10}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
                             {editMode && (
                                 <>
                                     <Divider style={{ margin: '32px 0 24px 0' }} />
@@ -816,6 +894,73 @@ const { Content, Header: AntHeader } = Layout; const ProfilePage = () => {
                                         </Card>
                                     </Col>
                                 </Row>
+
+                                {/* Vehicle Information Display */}
+                                {(userProfile.vehicleType || userProfile.licensePlate) && (
+                                    <>
+                                        <Divider orientation="left" style={{ margin: '32px 0 24px 0', fontSize: '16px', fontWeight: '600' }}>
+                                            Vehicle Information
+                                        </Divider>
+                                        <Row gutter={[24, 16]}>
+                                            <Col xs={24} sm={12}>
+                                                <Card
+                                                    size="small"
+                                                    style={{
+                                                        textAlign: 'center',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #e8e8e8',
+                                                        background: '#f0f9ff'
+                                                    }}
+                                                    bodyStyle={{ padding: '20px 16px' }}
+                                                >
+                                                    <CarOutlined style={{ fontSize: '24px', color: themeColors.primary, marginBottom: '8px' }} />
+                                                    <br />
+                                                    <Text strong style={{ fontSize: '14px', color: '#666' }}>
+                                                        Vehicle Type
+                                                    </Text>
+                                                    <br />
+                                                    <Text style={{
+                                                        fontSize: '16px',
+                                                        fontWeight: '600',
+                                                        marginTop: '8px',
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        {vehicleTypes.find(type => type.value === userProfile.vehicleType)?.label || 'Not specified'}
+                                                    </Text>
+                                                </Card>
+                                            </Col>
+                                            <Col xs={24} sm={12}>
+                                                <Card
+                                                    size="small"
+                                                    style={{
+                                                        textAlign: 'center',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #e8e8e8',
+                                                        background: '#f0f9ff'
+                                                    }}
+                                                    bodyStyle={{ padding: '20px 16px' }}
+                                                >
+                                                    <CarOutlined style={{ fontSize: '24px', color: themeColors.primary, marginBottom: '8px' }} />
+                                                    <br />
+                                                    <Text strong style={{ fontSize: '14px', color: '#666' }}>
+                                                        License Plate
+                                                    </Text>
+                                                    <br />
+                                                    <Text style={{
+                                                        fontSize: '16px',
+                                                        fontWeight: '600',
+                                                        marginTop: '8px',
+                                                        display: 'inline-block',
+                                                        fontFamily: 'monospace',
+                                                        letterSpacing: '1px'
+                                                    }}>
+                                                        {userProfile.licensePlate || 'Not specified'}
+                                                    </Text>
+                                                </Card>
+                                            </Col>
+                                        </Row>
+                                    </>
+                                )}
                             </div>
                         )}
                     </Card>

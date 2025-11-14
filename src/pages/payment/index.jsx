@@ -31,6 +31,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { fetchWallets, deductFromWallet } from '../../service/wallet.api';
 import { createReservation } from '../../service/reservation.api';
+import { getUserProfile } from '../../service/user.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -90,6 +91,7 @@ const PaymentPage = () => {
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [reservationData, setReservationData] = useState({
         vehicleType: '',
+        licensePlate: '',
         selectedChargingPoint: null
     });
 
@@ -120,6 +122,35 @@ const PaymentPage = () => {
         }
     };
 
+    const fetchUserVehicleInfo = useCallback(async () => {
+        try {
+            // Vehicle type mappings (from profile values to display labels)
+            const vehicleTypeLabels = {
+                'electric_car': 'Electric Car',
+                'hybrid_car': 'Hybrid Car',
+                'electric_motorcycle': 'Electric Motorcycle',
+                'electric_scooter': 'Electric Scooter',
+                'electric_bus': 'Electric Bus',
+                'electric_van': 'Electric Van'
+            };
+
+            const userProfile = await getUserProfile();
+            if (userProfile?.vehicleType && userProfile?.licensePlate) {
+                // Convert profile vehicle type to display label
+                const displayLabel = vehicleTypeLabels[userProfile.vehicleType] || userProfile.vehicleType;
+                setReservationData(prev => ({
+                    ...prev,
+                    vehicleType: displayLabel,
+                    licensePlate: userProfile.licensePlate
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching user vehicle info:', error);
+            // Don't show error message as vehicle info is optional
+            // User can still manually select if needed
+        }
+    }, []);
+
     const calculateCost = useCallback((duration) => {
         if (!reservationData.selectedChargingPoint || !stationData?.chargingPoints) return;
 
@@ -144,16 +175,23 @@ const PaymentPage = () => {
             return;
         }
 
-        // Calculate initial estimated cost when charging point is selected
+        // Fetch user vehicle information on component mount
+        fetchUserVehicleInfo();
+    }, [stationData, navigate, fetchUserVehicleInfo]);
+
+    // Separate useEffect for dynamic calculations
+    useEffect(() => {
         if (reservationData.selectedChargingPoint) {
             calculateCost(chargingDuration);
         }
+    }, [chargingDuration, reservationData.selectedChargingPoint, calculateCost]);
 
-        // Fetch wallet data if payment method is wallet
+    // Separate useEffect for wallet data
+    useEffect(() => {
         if (paymentMethod === 'wallet') {
             fetchWalletData();
         }
-    }, [stationData, navigate, chargingDuration, paymentMethod, reservationData.selectedChargingPoint, calculateCost]);
+    }, [paymentMethod]);
 
     const handleChargingPointChange = (pointId) => {
         setReservationData(prev => ({ ...prev, selectedChargingPoint: pointId }));
@@ -430,9 +468,11 @@ const PaymentPage = () => {
                         {currentStep === 0 && (
                             <Form form={form} layout="vertical">
                                 <Alert
-                                    message="Reservation Details"
-                                    description="Please provide your vehicle and scheduling details"
-                                    type="info"
+                                    message="Vehicle & Reservation Details"
+                                    description={reservationData.vehicleType && reservationData.licensePlate
+                                        ? "Your vehicle information has been loaded from your profile"
+                                        : "Please provide your vehicle and scheduling details"}
+                                    type={reservationData.vehicleType && reservationData.licensePlate ? "success" : "info"}
                                     showIcon
                                     style={{ marginBottom: '24px' }}
                                 />
@@ -449,6 +489,10 @@ const PaymentPage = () => {
                                                 value={reservationData.vehicleType}
                                                 onChange={(value) => setReservationData(prev => ({ ...prev, vehicleType: value }))}
                                                 size="large"
+                                                disabled={!!(reservationData.vehicleType && reservationData.licensePlate)}
+                                                style={{
+                                                    backgroundColor: (reservationData.vehicleType && reservationData.licensePlate) ? '#f6ffed' : ''
+                                                }}
                                             >
                                                 <Select.Option value="Electric Car">Electric Car</Select.Option>
                                                 <Select.Option value="Hybrid Car">Hybrid Car</Select.Option>
@@ -458,6 +502,14 @@ const PaymentPage = () => {
                                                 <Select.Option value="Electric Van">Electric Van</Select.Option>
                                             </Select>
                                         </Form.Item>
+                                        {reservationData.vehicleType && reservationData.licensePlate && (
+                                            <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                                                <Text strong style={{ color: '#52c41a' }}>License Plate: </Text>
+                                                <Text style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: '600' }}>
+                                                    {reservationData.licensePlate}
+                                                </Text>
+                                            </div>
+                                        )}
                                     </Col>
 
                                     <Col xs={24} md={12}>
@@ -800,6 +852,15 @@ const PaymentPage = () => {
                                         <Text strong>Vehicle Type: </Text>
                                         <Text>{reservationData.vehicleType || 'Not specified'}</Text>
                                     </div>
+
+                                    {reservationData.licensePlate && (
+                                        <div style={{ marginBottom: '12px' }}>
+                                            <Text strong>License Plate: </Text>
+                                            <Text style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                                                {reservationData.licensePlate}
+                                            </Text>
+                                        </div>
+                                    )}
 
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Charging Point: </Text>
