@@ -13,8 +13,7 @@ import {
     Divider,
     Space,
     Layout,
-    theme,
-    Select
+    theme
 } from 'antd';
 import { Modal, InputNumber } from 'antd';
 import {
@@ -41,7 +40,8 @@ import axios from 'axios';
 
 const { Title, Text } = Typography;
 const { Content, Header: AntHeader } = Layout;
-const { Option } = Select; const ProfilePage = () => {
+
+const ProfilePage = () => {
     console.log('=== PROFILE PAGE COMPONENT LOADING ===');
 
     const [form] = Form.useForm();
@@ -65,16 +65,6 @@ const { Option } = Select; const ProfilePage = () => {
     const {
         token: { colorBgContainer },
     } = theme.useToken();
-
-    // Vehicle type options
-    const vehicleTypes = [
-        { value: 'electric_car', label: 'Electric Car' },
-        { value: 'hybrid_car', label: 'Hybrid Car' },
-        { value: 'electric_motorcycle', label: 'Electric Motorcycle' },
-        { value: 'electric_scooter', label: 'Electric Scooter' },
-        { value: 'electric_bus', label: 'Electric Bus' },
-        { value: 'electric_van', label: 'Electric Van' }
-    ];
 
     console.log('Profile component mounted, currentUser:', currentUser);
 
@@ -114,17 +104,26 @@ const { Option } = Select; const ProfilePage = () => {
             // Try to fetch from API first
             try {
                 const response = await getUserProfile();
-                setUserProfile(response);
+
+                // Map API response to expected profile structure
+                const profileData = {
+                    ...response,
+                    phone: response.phoneNumber || response.phone || '', // Map phoneNumber to phone
+                    status: response.status || 'Active', // Default status if not provided
+                    createdAt: response.createdAt || new Date().toISOString(), // Default to current date if not provided
+                    updatedAt: response.updatedAt || new Date().toISOString(), // Default to current date if not provided
+                };
+
+                setUserProfile(profileData);
 
                 // Populate form with user data
                 form.setFieldsValue({
-                    fullName: response.fullName || '',
-                    email: response.email || '',
-                    phoneNumber: response.phoneNumber || '',
-                    address: response.address || '',
-                    dateOfBirth: response.dateOfBirth || '',
-                    vehicleType: response.vehicleType || '',
-                    licensePlate: response.licensePlate || '',
+                    fullName: profileData.fullName || '',
+                    email: profileData.email || '',
+                    phone: profileData.phone || '',
+                    vehicleModel: profileData.vehicleModel || '',
+                    licensePlate: profileData.licensePlate || '',
+                    batteryCapacity: profileData.batteryCapacity || '',
                 });
             } catch (apiError) {
                 console.log('API call failed, using mock data:', apiError);
@@ -133,13 +132,13 @@ const { Option } = Select; const ProfilePage = () => {
                 const mockProfile = {
                     fullName: currentUser?.fullName || 'User Name',
                     email: currentUser?.email || 'user@example.com',
-                    phoneNumber: '+1 234 567 8900',
-                    address: '123 Main Street, City, State 12345',
-                    dateOfBirth: '1990-01-01',
+                    phone: '+84900000001',
                     avatar: currentUser?.avatar || '',
                     role: currentUser?.role || 'USER',
-                    vehicleType: 'electric_car',
+                    status: 'Active',
+                    vehicleModel: 'VinFast VF8',
                     licensePlate: '29A-123.45',
+                    batteryCapacity: 1000,
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: new Date().toISOString()
                 };
@@ -150,11 +149,10 @@ const { Option } = Select; const ProfilePage = () => {
                 form.setFieldsValue({
                     fullName: mockProfile.fullName,
                     email: mockProfile.email,
-                    phoneNumber: mockProfile.phoneNumber,
-                    address: mockProfile.address,
-                    dateOfBirth: mockProfile.dateOfBirth,
-                    vehicleType: mockProfile.vehicleType,
+                    phone: mockProfile.phone,
+                    vehicleModel: mockProfile.vehicleModel,
                     licensePlate: mockProfile.licensePlate,
+                    batteryCapacity: mockProfile.batteryCapacity,
                 });
             }
         } catch (error) {
@@ -163,14 +161,9 @@ const { Option } = Select; const ProfilePage = () => {
         } finally {
             setInitialLoading(false);
         }
-    }, [form, currentUser]);    // Fetch user profile on component mount
-    useEffect(() => {
-        fetchUserProfile();
-        // also fetch wallet info
-        fetchWalletInfo();
-    }, [fetchUserProfile]);
+    }, [form, currentUser]);
 
-    const fetchWalletInfo = async () => {
+    const fetchWalletInfo = useCallback(async () => {
         try {
             const resp = await fetchWallets();
             if (resp?.data && resp.data.length > 0) {
@@ -184,7 +177,14 @@ const { Option } = Select; const ProfilePage = () => {
         } catch (err) {
             console.warn('Failed to load wallet info:', err);
         }
-    };
+    }, [currentUser]);
+
+    // Fetch user profile on component mount
+    useEffect(() => {
+        fetchUserProfile();
+        // also fetch wallet info
+        fetchWalletInfo();
+    }, [fetchUserProfile, fetchWalletInfo]);
 
     const handleUpdateProfile = async (values) => {
         try {
@@ -192,17 +192,25 @@ const { Option } = Select; const ProfilePage = () => {
 
             const updateData = {
                 fullName: values.fullName,
-                phoneNumber: values.phoneNumber,
-                address: values.address,
-                dateOfBirth: values.dateOfBirth,
-                vehicleType: values.vehicleType,
+                phoneNumber: values.phone, // Map phone back to phoneNumber for API
+                vehicleModel: values.vehicleModel,
                 licensePlate: values.licensePlate,
+                batteryCapacity: values.batteryCapacity,
             };
 
             const response = await updateUserProfile(updateData);
 
+            // Map API response to expected profile structure
+            const updatedProfileData = {
+                ...response,
+                phone: response.phoneNumber || response.phone || '', // Map phoneNumber to phone
+                status: response.status || userProfile?.status || 'Active', // Preserve existing status
+                createdAt: response.createdAt || userProfile?.createdAt || new Date().toISOString(),
+                updatedAt: response.updatedAt || new Date().toISOString(), // Update the timestamp
+            };
+
             // Update local state
-            setUserProfile(response);
+            setUserProfile(updatedProfileData);
 
             // Update Redux store if needed
             if (currentUser) {
@@ -228,11 +236,10 @@ const { Option } = Select; const ProfilePage = () => {
         form.setFieldsValue({
             fullName: userProfile?.fullName || '',
             email: userProfile?.email || '',
-            phoneNumber: userProfile?.phoneNumber || '',
-            address: userProfile?.address || '',
-            dateOfBirth: userProfile?.dateOfBirth || '',
-            vehicleType: userProfile?.vehicleType || '',
+            phone: userProfile?.phone || '',
+            vehicleModel: userProfile?.vehicleModel || '',
             licensePlate: userProfile?.licensePlate || '',
+            batteryCapacity: userProfile?.batteryCapacity || '',
         });
         setEditMode(false);
     };
@@ -303,8 +310,8 @@ const { Option } = Select; const ProfilePage = () => {
                 amount: topUpAmount,
                 walletId: walletData?.walletId || walletData?.id || null,
                 generatedAt: new Date().toISOString(),
-                accountName: payload.accountName,
-                accountNo: payload.accountNo
+                accountName: "CAO THAI HUNG",
+                accountNo: "0919273869"
             };
             setQrData(payloadFallback);
             setIsGeneratingQr(false);
@@ -726,7 +733,7 @@ const { Option } = Select; const ProfilePage = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '8px 0'
+                                padding: '24px 0'
                             }}>
                                 <div style={{
                                     display: 'flex',
@@ -750,20 +757,61 @@ const { Option } = Select; const ProfilePage = () => {
                                         </Text>
                                     </div>
                                 </div>
-                                {!editMode && (
-                                    <Button
-                                        type="primary"
-                                        icon={<EditOutlined />}
-                                        onClick={() => setEditMode(true)}
-                                        style={{
-                                            height: '40px',
-                                            borderRadius: '8px',
-                                            fontWeight: '500'
-                                        }}
-                                    >
-                                        Edit Profile
-                                    </Button>
-                                )}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '24px'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <Text style={{ fontSize: '12px', color: '#666', display: 'block' }}>
+                                                E-wallet Balance
+                                            </Text>
+                                            <Text style={{
+                                                color: '#fa8c16',
+                                                fontSize: '18px',
+                                                fontWeight: '700',
+                                                display: 'block'
+                                            }}>
+                                                ${(
+                                                    walletData?.balance ??
+                                                    currentUser?.user?.wallet?.balance ??
+                                                    currentUser?.wallet?.balance ??
+                                                    0
+                                                ).toFixed(2)}
+                                            </Text>
+                                        </div>
+                                        <Button
+                                            type="primary"
+                                            onClick={openTopUpModal}
+                                            style={{
+                                                height: '40px',
+                                                borderRadius: '8px',
+                                                fontWeight: '500',
+                                                minWidth: '80px'
+                                            }}
+                                        >
+                                            Top Up
+                                        </Button>
+                                    </div>
+                                    {!editMode && (
+                                        <Button
+                                            type="primary"
+                                            onClick={() => setEditMode(true)}
+                                            style={{
+                                                height: '40px',
+                                                borderRadius: '8px',
+                                                fontWeight: '500'
+                                            }}
+                                        >
+                                            Edit Profile
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         }
                         bodyStyle={{
@@ -778,7 +826,7 @@ const { Option } = Select; const ProfilePage = () => {
                             style={{ marginTop: '8px' }}
                         >
                             <Row gutter={[32, 24]} style={{ marginBottom: '16px' }}>
-                                <Col xs={24} lg={12}>
+                                <Col xs={24}>
                                     <Form.Item
                                         label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Full Name</span>}
                                         name="fullName"
@@ -800,7 +848,7 @@ const { Option } = Select; const ProfilePage = () => {
                                     </Form.Item>
                                 </Col>
 
-                                <Col xs={24} lg={12}>
+                                <Col xs={24}>
                                     <Form.Item
                                         label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Email</span>}
                                         name="email"
@@ -821,10 +869,10 @@ const { Option } = Select; const ProfilePage = () => {
                                     </Form.Item>
                                 </Col>
 
-                                <Col xs={24} lg={12}>
+                                <Col xs={24}>
                                     <Form.Item
                                         label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Phone Number</span>}
-                                        name="phoneNumber"
+                                        name="phone"
                                         rules={[
                                             { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
                                         ]}
@@ -841,18 +889,24 @@ const { Option } = Select; const ProfilePage = () => {
                                         />
                                     </Form.Item>
                                 </Col>
+                            </Row>
 
-                                <Col xs={24} lg={12}>
+                            {/* Vehicle Information Section */}
+                            <Divider orientation="left" style={{ margin: '32px 0 24px 0', fontSize: '16px', fontWeight: '600' }}>
+                                Vehicle Information
+                            </Divider>
+
+                            <Row gutter={[32, 24]} style={{ marginBottom: '16px' }}>
+                                <Col xs={24}>
                                     <Form.Item
-                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Date of Birth</span>}
-                                        name="dateOfBirth"
+                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Vehicle Model</span>}
+                                        name="vehicleModel"
                                         style={{ marginBottom: '24px' }}
                                     >
                                         <Input
-                                            prefix={<CalendarOutlined style={{ color: '#bfbfbf' }} />}
-                                            placeholder="YYYY-MM-DD"
+                                            prefix={<CarOutlined style={{ color: '#bfbfbf' }} />}
+                                            placeholder="Enter your vehicle model"
                                             size="large"
-                                            type="date"
                                             style={{
                                                 borderRadius: '8px',
                                                 height: '48px'
@@ -863,53 +917,24 @@ const { Option } = Select; const ProfilePage = () => {
 
                                 <Col xs={24}>
                                     <Form.Item
-                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Address</span>}
-                                        name="address"
+                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Battery Capacity (Wh)</span>}
+                                        name="batteryCapacity"
                                         style={{ marginBottom: '24px' }}
                                     >
-                                        <Input.TextArea
-                                            placeholder="Enter your address"
-                                            rows={4}
+                                        <Input
+                                            prefix={<CarOutlined style={{ color: '#bfbfbf' }} />}
+                                            placeholder="Enter battery capacity"
                                             size="large"
+                                            type="number"
                                             style={{
                                                 borderRadius: '8px',
-                                                resize: 'none'
+                                                height: '48px'
                                             }}
                                         />
                                     </Form.Item>
                                 </Col>
-                            </Row>
 
-                            {/* Vehicle Information Section */}
-                            <Divider orientation="left" style={{ margin: '32px 0 24px 0', fontSize: '16px', fontWeight: '600' }}>
-                                Vehicle Information
-                            </Divider>
-
-                            <Row gutter={[32, 24]} style={{ marginBottom: '16px' }}>
-                                <Col xs={24} lg={12}>
-                                    <Form.Item
-                                        label={<span style={{ fontSize: '14px', fontWeight: '500' }}>Vehicle Type</span>}
-                                        name="vehicleType"
-                                        style={{ marginBottom: '24px' }}
-                                    >
-                                        <Select
-                                            placeholder="Select your vehicle type"
-                                            size="large"
-                                            style={{
-                                                borderRadius: '8px'
-                                            }}
-                                            suffixIcon={<CarOutlined style={{ color: '#bfbfbf' }} />}
-                                        >
-                                            {vehicleTypes.map(type => (
-                                                <Option key={type.value} value={type.value}>
-                                                    {type.label}
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-
-                                <Col xs={24} lg={12}>
+                                <Col xs={24}>
                                     <Form.Item
                                         label={<span style={{ fontSize: '14px', fontWeight: '500' }}>License Plate Number</span>}
                                         name="licensePlate"
@@ -979,7 +1004,9 @@ const { Option } = Select; const ProfilePage = () => {
                         {!editMode && userProfile && (
                             <div style={{ marginTop: '32px' }}>
                                 <Divider style={{ margin: '24px 0' }} />
-                                <Row gutter={[24, 16]}>
+
+                                {/* User Information Summary */}
+                                <Row gutter={[24, 16]} style={{ marginBottom: '24px' }}>
                                     <Col xs={24} sm={8}>
                                         <Card
                                             size="small"
@@ -996,13 +1023,13 @@ const { Option } = Select; const ProfilePage = () => {
                                             </Text>
                                             <br />
                                             <Text style={{
-                                                color: '#52c41a',
+                                                color: userProfile?.status === 'Active' ? '#52c41a' : '#ff4d4f',
                                                 fontSize: '16px',
                                                 fontWeight: '600',
                                                 marginTop: '8px',
                                                 display: 'inline-block'
                                             }}>
-                                                Active
+                                                {userProfile?.status || 'Unknown'}
                                             </Text>
                                         </Card>
                                     </Col>
@@ -1057,113 +1084,6 @@ const { Option } = Select; const ProfilePage = () => {
                                         </Card>
                                     </Col>
                                 </Row>
-
-                                {/* Wallet Summary */}
-                                <Row gutter={[24, 16]} style={{ marginTop: 16 }}>
-                                    <Col xs={24} sm={12} lg={8}>
-                                        <Card
-                                            size="small"
-                                            style={{
-                                                textAlign: 'center',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e8e8e8',
-                                                background: '#fffbe6'
-                                            }}
-                                            bodyStyle={{ padding: '20px 16px' }}
-                                        >
-                                            <Text strong style={{ fontSize: '14px', color: '#666' }}>
-                                                E-wallet Balance
-                                            </Text>
-                                            <br />
-                                            <Text style={{
-                                                color: '#fa8c16',
-                                                fontSize: '20px',
-                                                fontWeight: '700',
-                                                marginTop: '8px',
-                                                display: 'inline-block'
-                                            }}>
-                                                ${(
-                                                    walletData?.balance ??
-                                                    currentUser?.user?.wallet?.balance ??
-                                                    currentUser?.wallet?.balance ??
-                                                    0
-                                                ).toFixed(2)}
-                                            </Text>
-                                            <div style={{ marginTop: 12 }}>
-                                                <Button type="primary" onClick={openTopUpModal}>
-                                                    Top Up
-                                                </Button>
-                                            </div>
-                                        </Card>
-                                    </Col>
-                                </Row>
-
-                                {/* Vehicle Information Display */}
-                                {(userProfile.vehicleType || userProfile.licensePlate) && (
-                                    <>
-                                        <Divider orientation="left" style={{ margin: '32px 0 24px 0', fontSize: '16px', fontWeight: '600' }}>
-                                            Vehicle Information
-                                        </Divider>
-                                        <Row gutter={[24, 16]}>
-                                            <Col xs={24} sm={12}>
-                                                <Card
-                                                    size="small"
-                                                    style={{
-                                                        textAlign: 'center',
-                                                        borderRadius: '8px',
-                                                        border: '1px solid #e8e8e8',
-                                                        background: '#f0f9ff'
-                                                    }}
-                                                    bodyStyle={{ padding: '20px 16px' }}
-                                                >
-                                                    <CarOutlined style={{ fontSize: '24px', color: themeColors.primary, marginBottom: '8px' }} />
-                                                    <br />
-                                                    <Text strong style={{ fontSize: '14px', color: '#666' }}>
-                                                        Vehicle Type
-                                                    </Text>
-                                                    <br />
-                                                    <Text style={{
-                                                        fontSize: '16px',
-                                                        fontWeight: '600',
-                                                        marginTop: '8px',
-                                                        display: 'inline-block'
-                                                    }}>
-                                                        {vehicleTypes.find(type => type.value === userProfile.vehicleType)?.label || 'Not specified'}
-                                                    </Text>
-                                                </Card>
-                                            </Col>
-                                            <Col xs={24} sm={12}>
-                                                <Card
-                                                    size="small"
-                                                    style={{
-                                                        textAlign: 'center',
-                                                        borderRadius: '8px',
-                                                        border: '1px solid #e8e8e8',
-                                                        background: '#f0f9ff'
-                                                    }}
-                                                    bodyStyle={{ padding: '20px 16px' }}
-                                                >
-                                                    <CarOutlined style={{ fontSize: '24px', color: themeColors.primary, marginBottom: '8px' }} />
-                                                    <br />
-                                                    <Text strong style={{ fontSize: '14px', color: '#666' }}>
-                                                        License Plate
-                                                    </Text>
-                                                    <br />
-                                                    <Text style={{
-                                                        fontSize: '16px',
-                                                        fontWeight: '600',
-                                                        marginTop: '8px',
-                                                        display: 'inline-block',
-                                                        fontFamily: 'monospace',
-                                                        letterSpacing: '1px'
-                                                    }}>
-                                                        {userProfile.licensePlate || 'Not specified'}
-                                                    </Text>
-                                                </Card>
-                                            </Col>
-                                        </Row>
-                                    </>
-                                )}
                             </div>
                         )}
                     </Card>
