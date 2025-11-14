@@ -58,7 +58,7 @@ const SessionHistoryPage = () => {
 
     try {
       console.log(`🔍 Fetching sessions from ${startId} to ${endId}`);
-      
+
       // Create promises for all session IDs in range
       for (let id = startId; id <= endId; id++) {
         sessionPromises.push(
@@ -79,14 +79,14 @@ const SessionHistoryPage = () => {
 
       // Wait for all promises to resolve
       const results = await Promise.all(sessionPromises);
-      
+
       // Filter out null values (not found sessions)
       const validSessions = results.filter(session => session !== null);
-      
+
       console.log("✅ Loaded sessions:", validSessions);
       setSessions(validSessions);
       setFilteredSessions(validSessions);
-      
+
       message.success(`Loaded ${validSessions.length} sessions`);
     } catch (error) {
       console.error("❌ Error loading sessions:", error);
