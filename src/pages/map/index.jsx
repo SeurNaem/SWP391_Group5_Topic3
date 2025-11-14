@@ -131,15 +131,16 @@ const MapPage = () => {
     const getStatusColor = (status) => {
         switch (status.toLowerCase()) {
             case 'available':
-                return '#52c41a';
+                return '#52c41a'; // Green
             case 'occupied':
             case 'busy':
-                return '#faad14';
+            case 'in use':
+                return '#1890ff'; // Blue
             case 'maintenance':
             case 'offline':
-                return '#ff4d4f';
+                return '#ff4d4f'; // Red
             case 'reserved':
-                return '#1890ff';
+                return '#fa8c16'; // Orange
             default:
                 return '#d9d9d9';
         }
@@ -151,12 +152,13 @@ const MapPage = () => {
                 return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
             case 'occupied':
             case 'busy':
-                return <ThunderboltOutlined style={{ color: '#faad14' }} />;
+            case 'in use':
+                return <ThunderboltOutlined style={{ color: '#1890ff' }} />;
             case 'maintenance':
             case 'offline':
                 return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
             case 'reserved':
-                return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />;
+                return <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />;
             default:
                 return <CloseCircleOutlined style={{ color: '#d9d9d9' }} />;
         }
@@ -285,10 +287,10 @@ const MapPage = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Text strong style={{ fontSize: '16px' }}>Available Charging Points:</Text>
                                                 <div style={{ fontSize: '12px' }}>
-                                                    <Tag color="success" size="small">Available</Tag>
-                                                    <Tag color="warning" size="small">Reserved</Tag>
-                                                    <Tag color="processing" size="small">Occupied</Tag>
-                                                    <Tag color="error" size="small">Offline</Tag>
+                                                    <Tag color="green" size="small">Available</Tag>
+                                                    <Tag color="orange" size="small">Reserved</Tag>
+                                                    <Tag color="blue" size="small">In Use</Tag>
+                                                    <Tag color="red" size="small">Offline</Tag>
                                                 </div>
                                             </div>
                                         </Col>
@@ -308,8 +310,9 @@ const MapPage = () => {
                                                             <Text strong>{point.name || `Point ${index + 1}`}</Text>
                                                             <Badge
                                                                 status={point.status === 'available' ? 'success' :
-                                                                    point.status === 'occupied' || point.status === 'busy' ? 'warning' :
-                                                                        'error'}
+                                                                    point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'processing' :
+                                                                        point.status === 'reserved' ? 'warning' :
+                                                                            'error'}
                                                             />
                                                         </div>
 
@@ -318,10 +321,10 @@ const MapPage = () => {
                                                             <br />
                                                             <Tag
                                                                 color={
-                                                                    point.status === 'available' ? 'success' :
-                                                                        point.status === 'reserved' ? 'warning' :
-                                                                            point.status === 'offline' || point.status === 'maintenance' ? 'error' :
-                                                                                point.status === 'occupied' || point.status === 'busy' ? 'processing' :
+                                                                    point.status === 'available' ? 'green' :
+                                                                        point.status === 'reserved' ? 'orange' :
+                                                                            point.status === 'offline' || point.status === 'maintenance' ? 'red' :
+                                                                                point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'blue' :
                                                                                     'default'
                                                                 }
                                                             >
@@ -330,7 +333,13 @@ const MapPage = () => {
                                                         </div>                                                        <div>
                                                             <Text type="secondary">Power:</Text>
                                                             <br />
-                                                            <Text>{point.powerOutput || point.power || 'N/A'}</Text>
+                                                            <Text>{point.maxPower ? `${point.maxPower}kW` : point.powerOutput || point.power || 'N/A'}</Text>
+                                                        </div>
+
+                                                        <div>
+                                                            <Text type="secondary">Price:</Text>
+                                                            <br />
+                                                            <Text>{point.pricePerKwh ? `$${point.pricePerKwh.toFixed(2)}/kWh` : 'N/A'}</Text>
                                                         </div>
 
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -340,13 +349,14 @@ const MapPage = () => {
                                                                 <Tag
                                                                     color={
                                                                         point.status === 'available' ? 'green' :
-                                                                            point.status === 'occupied' || point.status === 'busy' ? 'orange' :
-                                                                                point.status === 'reserved' ? 'blue' :
+                                                                            point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'blue' :
+                                                                                point.status === 'reserved' ? 'orange' :
                                                                                     'red'
                                                                     }
                                                                     icon={getStatusIcon(point.status)}
                                                                 >
-                                                                    {point.status || 'Unknown'}
+                                                                    {point.status === 'occupied' || point.status === 'busy' ? 'In Use' :
+                                                                        point.status || 'Unknown'}
                                                                 </Tag>
                                                             </div>
                                                         </div>
@@ -377,18 +387,18 @@ const MapPage = () => {
                                                         <Text type="secondary" style={{ fontSize: '12px' }}>Available</Text>
                                                     </Col>
                                                     <Col span={6}>
-                                                        <Text strong style={{ color: '#faad14' }}>
-                                                            {stationDetails.chargingPoints.filter(p => p.status === 'occupied' || p.status === 'busy').length}
-                                                        </Text>
-                                                        <br />
-                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Occupied</Text>
-                                                    </Col>
-                                                    <Col span={6}>
-                                                        <Text strong style={{ color: '#1890ff' }}>
+                                                        <Text strong style={{ color: '#fa8c16' }}>
                                                             {stationDetails.chargingPoints.filter(p => p.status === 'reserved').length}
                                                         </Text>
                                                         <br />
                                                         <Text type="secondary" style={{ fontSize: '12px' }}>Reserved</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#1890ff' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'occupied' || p.status === 'busy' || p.status === 'in use').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>In Use</Text>
                                                     </Col>
                                                     <Col span={6}>
                                                         <Text strong style={{ color: '#ff4d4f' }}>

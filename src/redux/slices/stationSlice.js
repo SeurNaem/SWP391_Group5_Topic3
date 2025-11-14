@@ -29,9 +29,35 @@ export const fetchStations = createAsyncThunk(
                             point.connectorType || point.type || 'Type 2'
                         ))] :
                         ['Type 2', 'CCS'], // Default types if no charging points data
-                    power: station.totalPoints ? `${station.totalPoints * 22}kW` :
-                        station.chargingPoints?.length > 0 ? `${station.chargingPoints.length * 22}kW` : '22kW',
-                    price: station.pricePerKWh ? `${station.pricePerKWh} VND/kWh` : '3,500 VND/kWh',
+                    // Calculate total power from charging points
+                    power: (() => {
+                        if (station.chargingPoints && station.chargingPoints.length > 0) {
+                            const totalPower = station.chargingPoints.reduce((sum, point) =>
+                                sum + (point.maxPower || 22), 0);
+                            return `${totalPower}kW`;
+                        }
+                        return station.totalPoints ? `${station.totalPoints * 22}kW` : '22kW';
+                    })(),
+                    // Calculate price range from charging points
+                    price: (() => {
+                        if (station.chargingPoints && station.chargingPoints.length > 0) {
+                            const prices = station.chargingPoints
+                                .map(point => point.pricePerKwh)
+                                .filter(price => price != null);
+
+                            if (prices.length > 0) {
+                                const minPrice = Math.min(...prices);
+                                const maxPrice = Math.max(...prices);
+
+                                if (minPrice === maxPrice) {
+                                    return `$${minPrice.toFixed(2)}/kWh`;
+                                } else {
+                                    return `$${minPrice.toFixed(2)}-$${maxPrice.toFixed(2)}/kWh`;
+                                }
+                            }
+                        }
+                        return '$0.35/kWh'; // Fallback
+                    })(),
                     imageUrl: station.imageUrl,
                     rating: station.rating,
                     openHours: station.openHours,
@@ -87,7 +113,7 @@ export const createStation = createAsyncThunk(
                 description: `Rating: ${station.rating}/5`,
                 chargerTypes: ['Type 2', 'CCS'],
                 power: '22kW',
-                price: '3,500 VND/kWh',
+                price: '$0.35/kWh',
                 imageUrl: station.imageUrl,
                 rating: station.rating,
                 openHours: station.openHours,
@@ -129,7 +155,7 @@ export const updateStation = createAsyncThunk(
                 description: `Rating: ${station.rating}/5`,
                 chargerTypes: ['Type 2', 'CCS'],
                 power: '22kW',
-                price: '3,500 VND/kWh',
+                price: '$0.35/kWh',
                 imageUrl: station.imageUrl,
                 rating: station.rating,
                 openHours: station.openHours,

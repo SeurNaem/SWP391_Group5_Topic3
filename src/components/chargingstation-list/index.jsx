@@ -64,7 +64,8 @@ const StationCard = ({
             case 'available':
                 return 'Available';
             case 'occupied':
-                return 'Occupied';
+            case 'busy':
+                return 'In Use';
             case 'maintenance':
                 return 'Maintenance';
             default:
@@ -172,15 +173,15 @@ const StationCard = ({
                                     console.log('Getting color for status:', status);
                                     switch (status?.toLowerCase()) {
                                         case 'available':
-                                            return 'success'; // Green
+                                            return 'green'; // Green
                                         case 'reserved':
-                                            return 'warning'; // Orange
+                                            return 'orange'; // Orange
                                         case 'offline':
                                         case 'maintenance':
-                                            return 'error'; // Red
+                                            return 'red'; // Red
                                         case 'occupied':
                                         case 'busy':
-                                            return 'processing'; // Blue
+                                            return 'blue'; // Blue
                                         default:
                                             return 'default'; // Gray
                                     }
@@ -212,13 +213,16 @@ const StationCard = ({
                             const getStationColor = (stationStatus) => {
                                 switch (stationStatus?.toLowerCase()) {
                                     case 'available':
-                                        return 'success'; // Green
+                                        return 'green'; // Green
                                     case 'occupied':
-                                        return 'warning'; // Orange
+                                    case 'busy':
+                                        return 'blue'; // Blue
+                                    case 'reserved':
+                                        return 'orange'; // Orange
                                     case 'maintenance':
-                                        return 'error'; // Red
+                                        return 'red'; // Red
                                     default:
-                                        return 'processing'; // Blue
+                                        return 'blue'; // Blue
                                 }
                             };
 
@@ -242,13 +246,16 @@ const StationCard = ({
                         const getStationColor = (stationStatus) => {
                             switch (stationStatus?.toLowerCase()) {
                                 case 'available':
-                                    return 'success'; // Green
+                                    return 'green'; // Green
                                 case 'occupied':
-                                    return 'warning'; // Orange
+                                case 'busy':
+                                    return 'blue'; // Blue
+                                case 'reserved':
+                                    return 'orange'; // Orange
                                 case 'maintenance':
-                                    return 'error'; // Red
+                                    return 'red'; // Red
                                 default:
-                                    return 'processing'; // Blue
+                                    return 'blue'; // Blue
                             }
                         };
 
@@ -472,16 +479,16 @@ const ChargingStationList = ({
                             Connector Status:
                         </Text>
                         <Space size={4}>
-                            <Tag color="success" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                            <Tag color="green" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
                                 Available
                             </Tag>
-                            <Tag color="warning" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                            <Tag color="orange" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
                                 Reserved
                             </Tag>
-                            <Tag color="processing" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
-                                Occupied
+                            <Tag color="blue" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                                In Use
                             </Tag>
-                            <Tag color="error" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
+                            <Tag color="red" size="small" style={{ fontSize: '11px', padding: '2px 6px' }}>
                                 Offline
                             </Tag>
                         </Space>
