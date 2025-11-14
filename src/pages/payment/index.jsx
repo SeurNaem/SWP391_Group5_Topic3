@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
     Card,
@@ -12,6 +12,7 @@ import {
     Steps,
     Form,
     InputNumber,
+    Input,
     Select,
     message,
     Spin
@@ -32,10 +33,24 @@ import dayjs from 'dayjs';
 import { fetchWallets, deductFromWallet } from '../../service/wallet.api';
 import { createReservation } from '../../service/reservation.api';
 import { getUserProfile } from '../../service/user.api';
+import { getVehicleByDriverId } from '../../service/vehicle-sim.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
 const { Option } = Select;
+
+/**
+ * Connector compatibility matrix
+ * Maps vehicle connector types to compatible charging point types
+ */
+const CONNECTOR_COMPATIBILITY = {
+    'CCS': ['CCS'],                    // CCS vehicles only work with CCS charging points
+    'CHAdeMO': ['CHAdeMO'],           // CHAdeMO vehicles only work with CHAdeMO charging points  
+    'Type2': ['AC', 'Type2'],         // Type2 vehicles work with AC and Type2 charging points
+    'Type 2': ['AC', 'Type2'],        // Alternative spelling
+    'Type1': ['AC'],                  // Type1 vehicles work with AC charging points
+    'Type 1': ['AC'],                 // Alternative spelling
+};
 
 /**
  * PaymentPage Component
@@ -62,7 +77,7 @@ const { Option } = Select;
  *   "stationId": number,
  *   "chargingPointId": number, 
  *   "userId": number,
- *   "vehicleType": string,
+ *   "vehicleModel": string,
  *   "startTime": string (ISO),
  *   "endTime": string (ISO),
  *   "estimatedCost": number
@@ -90,20 +105,24 @@ const PaymentPage = () => {
     const [chargingDuration, setChargingDuration] = useState(1);
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [reservationData, setReservationData] = useState({
-        vehicleType: '',
+        vehicleModel: '',
         licensePlate: '',
         selectedChargingPoint: null
     });
+    const [vehicleData, setVehicleData] = useState(null);
+    const [connectorCompatibilityError, setConnectorCompatibilityError] = useState('');
 
     // Get charging points from the station data
-    const availableChargingPoints = stationData?.chargingPoints?.map(point => ({
-        id: point.pointId,
-        name: `${point.connectorType} - ${point.maxPower}kW`,
-        type: point.connectorType,
-        power: `${point.maxPower}kW`,
-        status: point.status,
-        pricePerKwh: point.pricePerKwh
-    })) || [];
+    const availableChargingPoints = useMemo(() => {
+        return stationData?.chargingPoints?.map(point => ({
+            id: point.pointId,
+            name: `${point.connectorType} - ${point.maxPower}kW`,
+            type: point.connectorType,
+            power: `${point.maxPower}kW`,
+            status: point.status,
+            pricePerKwh: point.pricePerKwh
+        })) || [];
+    }, [stationData?.chargingPoints]);
     const [createdReservation, setCreatedReservation] = useState(null);
 
     const fetchWalletData = async () => {
@@ -124,34 +143,79 @@ const PaymentPage = () => {
 
     const fetchUserVehicleInfo = useCallback(async () => {
         try {
-            // Vehicle type mappings (from profile values to display labels)
-            const vehicleTypeLabels = {
-                'electric_car': 'Electric Car',
-                'hybrid_car': 'Hybrid Car',
-                'electric_motorcycle': 'Electric Motorcycle',
-                'electric_scooter': 'Electric Scooter',
-                'electric_bus': 'Electric Bus',
-                'electric_van': 'Electric Van'
-            };
-
+            // Get user profile for basic info (license plate, etc.)
             const userProfile = await getUserProfile();
-            if (userProfile?.vehicleType && userProfile?.licensePlate) {
-                // Convert profile vehicle type to display label
-                const displayLabel = vehicleTypeLabels[userProfile.vehicleType] || userProfile.vehicleType;
-                setReservationData(prev => ({
-                    ...prev,
-                    vehicleType: displayLabel,
-                    licensePlate: userProfile.licensePlate
-                }));
+
+            // Debug: Check what we have for user ID
+            console.log('Account from Redux:', account);
+            console.log('User Profile:', userProfile);
+
+            // Get vehicle details from VehicleSim API using driverId from user profile
+            if (userProfile?.driverId) {
+                console.log('Attempting to fetch vehicle data for driverId:', userProfile.driverId);
+
+                // Use driverId from user profile
+                const driverId = String(userProfile.driverId);
+                const vehicleInfo = await getVehicleByDriverId(driverId);
+
+                console.log('Vehicle info response:', vehicleInfo);
+
+                if (vehicleInfo) {
+                    // Set vehicle data from VehicleSim API response
+                    const vehicleData = {
+                        model: vehicleInfo.model || '',
+                        connectorType: vehicleInfo.connectorType || '',
+                        currentBatteryPercent: vehicleInfo.currentBatteryPercent,
+                        batteryCapacityKwh: vehicleInfo.batteryCapacityKwh
+                    };
+
+                    setVehicleData(vehicleData);
+
+                    setReservationData(prev => ({
+                        ...prev,
+                        vehicleModel: vehicleInfo.model || '',
+                        licensePlate: userProfile?.licensePlate || ''
+                    }));
+                }
+            } else {
+                console.warn('No driverId found in user profile');
             }
         } catch (error) {
-            console.error('Error fetching user vehicle info:', error);
+            console.error('Error fetching vehicle info:', error);
+            console.error('Error details:', error.response?.data || error.message);
             // Don't show error message as vehicle info is optional
             // User can still manually select if needed
         }
-    }, []);
+    }, [account]);
 
-    const calculateCost = useCallback((duration) => {
+    // Check connector compatibility when charging point is selected
+    const checkConnectorCompatibility = useCallback((chargingPointId) => {
+        if (!vehicleData || !chargingPointId) {
+            setConnectorCompatibilityError('');
+            return true;
+        }
+
+        const selectedPoint = availableChargingPoints.find(point => point.id === chargingPointId);
+        if (!selectedPoint) {
+            setConnectorCompatibilityError('');
+            return true;
+        }
+
+        // Use compatibility matrix for accurate matching
+        const vehicleConnectorType = vehicleData.connectorType;
+        const chargingPointType = selectedPoint.type;
+
+        const compatibleTypes = CONNECTOR_COMPATIBILITY[vehicleConnectorType] || [];
+        const isCompatible = compatibleTypes.includes(chargingPointType);
+
+        if (!isCompatible) {
+            setConnectorCompatibilityError('Incompatible!');
+            return false;
+        }
+
+        setConnectorCompatibilityError('');
+        return true;
+    }, [vehicleData, availableChargingPoints]); const calculateCost = useCallback((duration) => {
         if (!reservationData.selectedChargingPoint || !stationData?.chargingPoints) return;
 
         // Find the selected charging point
@@ -195,6 +259,8 @@ const PaymentPage = () => {
 
     const handleChargingPointChange = (pointId) => {
         setReservationData(prev => ({ ...prev, selectedChargingPoint: pointId }));
+        // Check connector compatibility
+        checkConnectorCompatibility(pointId);
         // Recalculate cost with new charging point
         setTimeout(() => calculateCost(chargingDuration), 0);
     };
@@ -236,12 +302,18 @@ const PaymentPage = () => {
     };
 
     const handleContinueToDuration = () => {
-        if (!reservationData.vehicleType) {
-            message.error('Please select your vehicle type.');
+        if (!reservationData.vehicleModel) {
+            message.error('Please select your vehicle model.');
             return;
         }
 
         if (!validateSelectedChargingPoint()) {
+            return;
+        }
+
+        // Check connector compatibility before proceeding
+        if (connectorCompatibilityError) {
+            message.error('Selected charging point is incompatible with your vehicle connector type.');
             return;
         }
 
@@ -267,7 +339,7 @@ const PaymentPage = () => {
             }
 
             // Validate reservation data
-            if (!reservationData.vehicleType || !reservationData.selectedChargingPoint) {
+            if (!reservationData.vehicleModel || !reservationData.selectedChargingPoint) {
                 message.error('Please fill in all reservation details.');
                 setCurrentStep(0);
                 return;
@@ -469,10 +541,10 @@ const PaymentPage = () => {
                             <Form form={form} layout="vertical">
                                 <Alert
                                     message="Vehicle & Reservation Details"
-                                    description={reservationData.vehicleType && reservationData.licensePlate
+                                    description={reservationData.vehicleModel && reservationData.licensePlate
                                         ? "Your vehicle information has been loaded from your profile"
                                         : "Please provide your vehicle and scheduling details"}
-                                    type={reservationData.vehicleType && reservationData.licensePlate ? "success" : "info"}
+                                    type={reservationData.vehicleModel && reservationData.licensePlate ? "success" : "info"}
                                     showIcon
                                     style={{ marginBottom: '24px' }}
                                 />
@@ -480,29 +552,22 @@ const PaymentPage = () => {
                                 <Row gutter={[16, 16]}>
                                     <Col xs={24} md={12}>
                                         <Form.Item
-                                            label="Vehicle Type"
+                                            label="Vehicle Model"
                                             required
-                                            rules={[{ required: true, message: 'Please select vehicle type' }]}
+                                            rules={[{ required: true, message: 'Please enter vehicle model' }]}
                                         >
-                                            <Select
-                                                placeholder="Select your vehicle type"
-                                                value={reservationData.vehicleType}
-                                                onChange={(value) => setReservationData(prev => ({ ...prev, vehicleType: value }))}
+                                            <Input
+                                                placeholder="Enter your vehicle model"
+                                                value={reservationData.vehicleModel}
+                                                onChange={(e) => setReservationData(prev => ({ ...prev, vehicleModel: e.target.value }))}
                                                 size="large"
-                                                disabled={!!(reservationData.vehicleType && reservationData.licensePlate)}
+                                                disabled={!!(reservationData.vehicleModel && reservationData.licensePlate)}
                                                 style={{
-                                                    backgroundColor: (reservationData.vehicleType && reservationData.licensePlate) ? '#f6ffed' : ''
+                                                    backgroundColor: (reservationData.vehicleModel && reservationData.licensePlate) ? '#f6ffed' : ''
                                                 }}
-                                            >
-                                                <Select.Option value="Electric Car">Electric Car</Select.Option>
-                                                <Select.Option value="Hybrid Car">Hybrid Car</Select.Option>
-                                                <Select.Option value="Electric Motorcycle">Electric Motorcycle</Select.Option>
-                                                <Select.Option value="Electric Scooter">Electric Scooter</Select.Option>
-                                                <Select.Option value="Electric Bus">Electric Bus</Select.Option>
-                                                <Select.Option value="Electric Van">Electric Van</Select.Option>
-                                            </Select>
+                                            />
                                         </Form.Item>
-                                        {reservationData.vehicleType && reservationData.licensePlate && (
+                                        {reservationData.vehicleModel && reservationData.licensePlate && (
                                             <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
                                                 <Text strong style={{ color: '#52c41a' }}>License Plate: </Text>
                                                 <Text style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: '600' }}>
@@ -517,7 +582,6 @@ const PaymentPage = () => {
                                             label="Charging Point"
                                             required
                                             rules={[{ required: true, message: 'Please select a charging point' }]}
-                                            extra="Note: Only available charging points can be selected"
                                         >
                                             <Select
                                                 placeholder="Select charging point"
@@ -553,6 +617,15 @@ const PaymentPage = () => {
                                                 })}
                                             </Select>
                                         </Form.Item>
+                                        {/* Display compatibility error */}
+                                        {connectorCompatibilityError && (
+                                            <Alert
+                                                message={connectorCompatibilityError}
+                                                type="error"
+                                                showIcon
+                                                style={{ marginTop: '8px' }}
+                                            />
+                                        )}
                                     </Col>
                                 </Row>
 
@@ -601,7 +674,7 @@ const PaymentPage = () => {
                                         type="primary"
                                         size="large"
                                         onClick={handleContinueToDuration}
-                                        disabled={!reservationData.vehicleType || !reservationData.selectedChargingPoint}
+                                        disabled={!reservationData.vehicleModel || !reservationData.selectedChargingPoint || connectorCompatibilityError}
                                     >
                                         Continue to Duration
                                     </Button>
@@ -849,8 +922,8 @@ const PaymentPage = () => {
                                     )}
 
                                     <div style={{ marginBottom: '12px' }}>
-                                        <Text strong>Vehicle Type: </Text>
-                                        <Text>{reservationData.vehicleType || 'Not specified'}</Text>
+                                        <Text strong>Vehicle Model: </Text>
+                                        <Text>{reservationData.vehicleModel || 'Not specified'}</Text>
                                     </div>
 
                                     {reservationData.licensePlate && (
@@ -1008,15 +1081,13 @@ const PaymentPage = () => {
                             <Divider />
 
                             {/* Show reservation details if available */}
-                            {reservationData.vehicleType && (
+                            {reservationData.vehicleModel && (
                                 <>
                                     <div>
                                         <Text strong>Vehicle:</Text>
                                         <br />
-                                        <Text>{reservationData.vehicleType}</Text>
-                                    </div>
-
-                                    <div>
+                                        <Text>{reservationData.vehicleModel}</Text>
+                                    </div>                                    <div>
                                         <Text strong>License Plate:</Text>
                                         <br />
                                         <Text>{reservationData.licensePlate}</Text>
