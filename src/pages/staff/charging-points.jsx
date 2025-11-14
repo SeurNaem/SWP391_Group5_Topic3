@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Row,
@@ -20,22 +20,28 @@ import {
   ApiOutlined,
   DollarOutlined,
   FireOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
-import { getStationChargingPoints } from "../../service/staff.api";
+import { getStationChargingPoints, startSession, stopSession, getStationReservations, getStationActiveSessions } from "../../service/staff.api";
 
 const { Title, Text } = Typography;
 
 const ChargingPointsPage = () => {
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState({});
+  const [activeSessions, setActiveSessions] = useState({}); // Store sessionId for each pointId
   const navigate = useNavigate();
   const { stationId } = useParams();
 
-  const fetchChargingPoints = async () => {
+  const fetchChargingPoints = useCallback(async () => {
     setLoading(true);
     try {
+      console.log("Fetching charging points for station:", stationId);
       const data = await getStationChargingPoints(stationId);
+      console.log("Charging points received:", data);
       // Handle both array and single object
       const pointsArray = Array.isArray(data) ? data : [data];
       setPoints(pointsArray);
@@ -45,13 +51,233 @@ const ChargingPointsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [stationId]);
 
   useEffect(() => {
     if (stationId) {
       fetchChargingPoints();
     }
-  }, [stationId]);
+  }, [stationId, fetchChargingPoints]);
+
+  const handleStartSession = async (point) => {
+    console.log("=== START SESSION CLICKED ===");
+    console.log("Point object received:", point);
+    console.log("Point ID:", point.pointId);
+    console.log("Point Status:", point.status);
+
+    setActionLoading((prev) => ({ ...prev, [point.pointId]: "start" }));
+    try {
+      console.log("Step 1: Fetching all reservations for station:", stationId);
+      // Fetch all reservations for this station
+      const reservations = await getStationReservations(stationId);
+      console.log("Step 2: All reservations received:", reservations);
+
+      // Handle both array and single object
+      const reservationsArray = Array.isArray(reservations) ? reservations : [reservations];
+      console.log("Step 3: Reservations array:", reservationsArray);
+
+      // Find the reservation for this specific charging point
+      const matchingReservation = reservationsArray.find(
+        (res) => res.pointId === point.pointId && res.status?.toLowerCase() === "confirmed"
+      );
+
+      console.log("Step 4: Matching reservation found:", matchingReservation);
+
+      if (!matchingReservation) {
+        console.error("ERROR: No confirmed reservation found for this charging point");
+        message.error("No confirmed reservation found for this charging point");
+        setActionLoading((prev) => ({ ...prev, [point.pointId]: null }));
+        return;
+      }
+
+      // Validate reservation data
+      if (!matchingReservation.userId || !matchingReservation.pointId || !matchingReservation.reservationId) {
+        console.error("ERROR: Incomplete reservation data:", matchingReservation);
+        message.error("Incomplete reservation data");
+        setActionLoading((prev) => ({ ...prev, [point.pointId]: null }));
+        return;
+      }
+
+      // Prepare session data with all fields from reservation
+      const sessionData = {
+        userId: matchingReservation.userId,           // Fetch from reservation
+        pointId: matchingReservation.pointId,         // Fetch from reservation
+        reservationId: matchingReservation.reservationId, // Fetch from reservation
+        vehicleId: 0,                                 // Keep as 0
+        paymentMethod: matchingReservation.paymentMethod || "banking" // e-wallet or banking
+      };
+
+      console.log("Step 5: Prepared session data:", sessionData);
+      console.log("Step 6: Calling startSession API...");
+      // Start the session - this will change status from "reserved" to "in use"
+      const response = await startSession(sessionData);
+      console.log("Step 7: Session start response received:", response);
+      console.log("Step 7a: Response structure:", JSON.stringify(response, null, 2));
+
+      // Extract sessionId from response (might be nested in data property)
+      const sessionId = response?.sessionId || response?.data?.sessionId;
+      console.log("Step 7b: Extracted sessionId:", sessionId);
+
+      // Store the sessionId for this point
+      if (sessionId) {
+        console.log("Step 7c: Storing sessionId:", sessionId, "for pointId:", point.pointId);
+        setActiveSessions((prev) => ({
+          ...prev,
+          [point.pointId]: {
+            sessionId: sessionId,
+            paymentMethod: sessionData.paymentMethod
+          }
+        }));
+        console.log("Step 7d: Session stored successfully");
+      } else {
+        console.error("ERROR: No sessionId found in response:", response);
+        message.warning("Session started but sessionId not returned. You may need to refresh.");
+      }
+
+      message.success("Session started successfully - Status changed to In Use");
+
+      console.log("Step 8: Refreshing charging points...");
+      // Refresh charging points to show updated status
+      setTimeout(() => {
+        fetchChargingPoints();
+      }, 500);
+    } catch (error) {
+      console.error("=== ERROR IN START SESSION ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      message.error(error.response?.data?.message || error.message || "Failed to start session");
+    } finally {
+      console.log("=== END START SESSION ===");
+      setActionLoading((prev) => ({ ...prev, [point.pointId]: null }));
+    }
+  };
+
+  const handleStopSession = async (pointOrId) => {
+    console.log("=== STOP SESSION CLICKED ===");
+    console.log("Point parameter received:", pointOrId);
+
+    // Handle both cases: if pointOrId is a number (pointId) or an object (point)
+    const pointId = typeof pointOrId === 'number' ? pointOrId : pointOrId.pointId;
+    const pointStatus = typeof pointOrId === 'object' ? pointOrId.status : null;
+
+    console.log("Point ID:", pointId);
+    console.log("Point Status:", pointStatus);
+
+    setActionLoading((prev) => ({ ...prev, [pointId]: "stop" }));
+    try {
+      console.log("Step 1: Fetching reservations for station:", stationId);
+      // Fetch all reservations to find the one for this point
+      const reservations = await getStationReservations(stationId);
+      console.log("Step 2: Reservations received:", JSON.stringify(reservations, null, 2));
+
+      // Handle both array and single object
+      const reservationsArray = Array.isArray(reservations) ? reservations : [reservations];
+
+      // Find the reservation for this specific charging point
+      const matchingReservation = reservationsArray.find(
+        (res) => res.pointId === pointId && res.status === "confirmed"
+      );
+
+      console.log("Step 3: Matching reservation found:", matchingReservation);
+
+      if (!matchingReservation) {
+        console.error("ERROR: No confirmed reservation found for this charging point");
+        message.error("No confirmed reservation found for this charging point");
+        setActionLoading((prev) => ({ ...prev, [pointId]: null }));
+        return;
+      }
+
+      const reservationId = matchingReservation.reservationId;
+      console.log("Step 4: Using reservationId:", reservationId);
+
+      let sessionId = null;
+
+      // Get sessionId from active sessions API by matching pointId
+      try {
+        console.log("Step 5: Fetching active sessions for station:", stationId);
+        const sessions = await getStationActiveSessions(stationId);
+        console.log("Step 6: Active sessions received:", JSON.stringify(sessions, null, 2));
+
+        // Handle both array and single object
+        const sessionsArray = Array.isArray(sessions) ? sessions : [sessions];
+
+        // Find the session that matches this pointId
+        const matchingSession = sessionsArray.find(
+          (session) => session.pointId === pointId
+        );
+
+        console.log("Step 7: Matching session found by pointId:", matchingSession);
+
+        if (matchingSession && matchingSession.sessionId) {
+          sessionId = matchingSession.sessionId;
+          console.log("Step 8: Found sessionId from active sessions API:", sessionId);
+        } else {
+          console.warn("WARNING: No session found for pointId:", pointId);
+          console.log("Available sessions:", sessionsArray.map(s => ({
+            sessionId: s.sessionId,
+            pointId: s.pointId,
+            reservationId: s.reservationId
+          })));
+        }
+      } catch (sessionError) {
+        console.warn("WARNING: Could not fetch from active sessions API:", sessionError);
+        console.log("Step 8alt: Will try to use stored sessionId");
+      }
+
+      // Fallback: Try to get sessionId from stored sessions
+      if (!sessionId && activeSessions[pointId]) {
+        sessionId = activeSessions[pointId].sessionId;
+        console.log("Step 9: Using stored sessionId:", sessionId);
+      }
+
+      // If still no sessionId, show error
+      if (!sessionId) {
+        console.error("ERROR: Could not find sessionId for this charging point");
+        message.error("No active session found for this charging point. Please start a session first.");
+        setActionLoading((prev) => ({ ...prev, [pointId]: null }));
+        return;
+      }
+
+      console.log("Step 10: Final sessionId to use:", sessionId);
+
+      // Prepare stop session data
+      const stopData = {
+        sessionId: sessionId,
+        endTime: new Date().toISOString(),
+        energyConsumed: 0,
+        paymentMethod: matchingReservation.paymentMethod || "banking",
+        createInvoice: true
+      };
+
+      console.log("Step 11: Prepared stop session data:", JSON.stringify(stopData, null, 2));
+      console.log("Step 12: Calling POST Staff/session/stop");
+
+      const response = await stopSession(stopData);
+      console.log("Step 13: Session stop response:", JSON.stringify(response, null, 2));
+
+      message.success("Session stopped successfully - Status changed to Available");
+
+      console.log("Step 14: Refreshing charging points...");
+      setTimeout(() => {
+        fetchChargingPoints();
+      }, 1000);
+    } catch (error) {
+      console.error("=== ERROR IN STOP SESSION ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      console.error("Error stack:", error.stack);
+      message.error(error.response?.data?.message || error.message || "Failed to stop session");
+      setActionLoading((prev) => ({ ...prev, [pointId]: null }));
+    } finally {
+      console.log("=== END STOP SESSION ===");
+    }
+  };
 
   const getStatusConfig = (status) => {
     const statusLower = status?.toLowerCase();
@@ -60,6 +286,10 @@ const ChargingPointsPage = () => {
         return { color: "success", text: "Available", badgeStatus: "success" };
       case "charging":
         return { color: "processing", text: "Charging", badgeStatus: "processing" };
+      case "in use":
+      case "in_use":
+      case "inuse":
+        return { color: "processing", text: "In Use", badgeStatus: "processing" };
       case "reserved":
         return { color: "warning", text: "Reserved", badgeStatus: "warning" };
       case "offline":
@@ -71,7 +301,6 @@ const ChargingPointsPage = () => {
         return { color: "default", text: status, badgeStatus: "default" };
     }
   };
-
   const getConnectorColor = (type) => {
     const typeUpper = type?.toUpperCase();
     switch (typeUpper) {
@@ -89,19 +318,23 @@ const ChargingPointsPage = () => {
         return "default";
     }
   };
-
   // Calculate statistics
   const stats = {
     total: points.length,
     available: points.filter((p) => p.status?.toLowerCase() === "available").length,
-    charging: points.filter((p) => p.status?.toLowerCase() === "charging").length,
+    charging: points.filter(
+      (p) =>
+        p.status?.toLowerCase() === "charging" ||
+        p.status?.toLowerCase() === "in use" ||
+        p.status?.toLowerCase() === "in_use" ||
+        p.status?.toLowerCase() === "inuse"
+    ).length,
     offline: points.filter(
       (p) =>
         p.status?.toLowerCase() === "offline" ||
         p.status?.toLowerCase() === "out_of_service"
     ).length,
   };
-
   if (loading) {
     return (
       <div
@@ -117,7 +350,6 @@ const ChargingPointsPage = () => {
       </div>
     );
   }
-
   return (
     <div
       style={{
@@ -164,7 +396,6 @@ const ChargingPointsPage = () => {
             </Col>
           </Row>
         </Card>
-
         {/* Statistics Cards */}
         <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
           <Col xs={12} sm={12} md={6}>
@@ -208,7 +439,6 @@ const ChargingPointsPage = () => {
             </Card>
           </Col>
         </Row>
-
         {/* Charging Points Grid */}
         {points.length === 0 ? (
           <Card
@@ -234,15 +464,14 @@ const ChargingPointsPage = () => {
                     style={{
                       borderRadius: "12px",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      border: `2px solid ${
-                        statusConfig.badgeStatus === "success"
-                          ? "#52c41a"
-                          : statusConfig.badgeStatus === "processing"
+                      border: `2px solid ${statusConfig.badgeStatus === "success"
+                        ? "#52c41a"
+                        : statusConfig.badgeStatus === "processing"
                           ? "#1890ff"
                           : statusConfig.badgeStatus === "warning"
-                          ? "#faad14"
-                          : "#d9d9d9"
-                      }`,
+                            ? "#faad14"
+                            : "#d9d9d9"
+                        }`,
                     }}
                   >
                     <Space
@@ -259,10 +488,10 @@ const ChargingPointsPage = () => {
                               statusConfig.badgeStatus === "success"
                                 ? "#52c41a"
                                 : statusConfig.badgeStatus === "processing"
-                                ? "#1890ff"
-                                : statusConfig.badgeStatus === "warning"
-                                ? "#faad14"
-                                : "#8c8c8c",
+                                  ? "#1890ff"
+                                  : statusConfig.badgeStatus === "warning"
+                                    ? "#faad14"
+                                    : "#8c8c8c",
                           }}
                         />
                         <Title level={4} style={{ margin: "8px 0" }}>
@@ -277,7 +506,6 @@ const ChargingPointsPage = () => {
                           }
                         />
                       </div>
-
                       {/* Point Details */}
                       <Space
                         direction="vertical"
@@ -299,7 +527,6 @@ const ChargingPointsPage = () => {
                             {point.connectorType}
                           </Tag>
                         </div>
-
                         <div
                           style={{
                             display: "flex",
@@ -312,7 +539,6 @@ const ChargingPointsPage = () => {
                           </Text>
                           <Text strong>{point.maxPower} kW</Text>
                         </div>
-
                         <div
                           style={{
                             display: "flex",
@@ -327,6 +553,41 @@ const ChargingPointsPage = () => {
                         </div>
                       </Space>
 
+                      {/* Action Buttons */}
+                      <Space style={{ width: "100%", justifyContent: "center" }}>
+                        <Button
+                          type="primary"
+                          icon={<PlayCircleOutlined />}
+                          onClick={() => handleStartSession(point)}
+                          loading={actionLoading[point.pointId] === "start"}
+                          disabled={
+                            point.status?.toLowerCase() !== "reserved" ||
+                            actionLoading[point.pointId]
+                          }
+                          style={{
+                            backgroundColor: "#52c41a",
+                            borderColor: "#52c41a",
+                          }}
+                        >
+                          Start
+                        </Button>
+                        <Button
+                          danger
+                          icon={<StopOutlined />}
+                          onClick={() => handleStopSession(point)}
+                          loading={actionLoading[point.pointId] === "stop"}
+                          disabled={
+                            !(
+                              point.status?.toLowerCase() === "in use" ||
+                              point.status?.toLowerCase() === "in_use" ||
+                              point.status?.toLowerCase() === "inuse"
+                            ) || actionLoading[point.pointId]
+                          }
+                        >
+                          Stop
+                        </Button>
+                      </Space>
+
                       {/* Status Indicator Bar */}
                       <div
                         style={{
@@ -336,10 +597,10 @@ const ChargingPointsPage = () => {
                             statusConfig.badgeStatus === "success"
                               ? "#52c41a"
                               : statusConfig.badgeStatus === "processing"
-                              ? "#1890ff"
-                              : statusConfig.badgeStatus === "warning"
-                              ? "#faad14"
-                              : "#d9d9d9",
+                                ? "#1890ff"
+                                : statusConfig.badgeStatus === "warning"
+                                  ? "#faad14"
+                                  : "#d9d9d9",
                         }}
                       />
                     </Space>
