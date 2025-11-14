@@ -104,13 +104,8 @@ const LoginPage = () => {
       const { token, role } = response.data;
       localStorage.setItem("token", token);
 
-      // Convert role to proper case format (Admin instead of ADMIN, Staff instead of STAFF)
-      let formattedRole = role;
-      if (role === "ADMIN") {
-        formattedRole = "Admin";
-      } else if (role === "STAFF") {
-        formattedRole = "Staff";
-      }
+      // Convert role to proper case format (Admin instead of ADMIN)
+      const formattedRole = role === "ADMIN" ? "Admin" : role;
 
       // Update response data with formatted role
       const userData = {
@@ -136,9 +131,6 @@ const LoginPage = () => {
         if (formattedRole === "Admin") {
           console.log("Navigating to dashboard for Admin role");
           navigate("/dashboard");
-        } else if (formattedRole === "Staff") {
-          console.log("Navigating to staff page for Staff role");
-          navigate("/staff");
         } else {
           console.log("Navigating to home for non-admin role");
           navigate("/");
