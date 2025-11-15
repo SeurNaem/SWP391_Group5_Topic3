@@ -465,6 +465,11 @@ const EbikeHomePage = () => {
                   <a
                     href="#"
                     style={styles.dropdownItem}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleAuthenticatedNavigation('/charging-history');
+                      setIsDropdownOpen(false);
+                    }}
                     onMouseEnter={(e) => {
                       e.target.style.backgroundColor = themeColors.primary;
                       e.target.style.transform = 'scale(1.02)';

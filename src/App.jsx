@@ -10,6 +10,7 @@ import EbikeHomePage from "./pages/home";
 import ProtectedRoute from "./components/protected-route";
 import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
+import ChargingHistoryPage from "./pages/charging-history";
 import ManageSubscription from "./pages/subscription";
 import ManageChargingStation from "./pages/charging-station";
 import ManageUser from "./pages/user";
@@ -134,12 +135,20 @@ function App() {
         </ProtectedRoute>
       ),
     },
+    {
+      path: "/charging-history",
+      element: (
+        <ProtectedRoute>
+          <ChargingHistoryPage />
+        </ProtectedRoute>
+      ),
+    },
   ]);
 
   return (
     <>
       <ToastContainer />
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
     </>
   );
 }

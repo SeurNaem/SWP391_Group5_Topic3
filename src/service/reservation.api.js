@@ -84,6 +84,28 @@ export const updateReservation = async (reservationId, reservationData) => {
 };
 
 /**
+ * Stop a running reservation / charging session
+ * @param {number|string} reservationId
+ * @returns {Promise}
+ */
+export const stopReservation = async (reservationId) => {
+    try {
+        // Try a dedicated stop endpoint first
+        const response = await api.post(`${API}/${reservationId}/stop`);
+        return response.data;
+    } catch (error) {
+        // Fallback: update reservation status to 'stopped'
+        try {
+            const response = await api.put(`${API}/${reservationId}`, { status: 'stopped' });
+            return response.data;
+        } catch (err) {
+            console.error(`Error stopping reservation ${reservationId}:`, err);
+            throw err;
+        }
+    }
+};
+
+/**
  * Check reservation availability for a time slot
  * @param {Object} availabilityData - Availability check data
  * @param {number} availabilityData.stationId - ID of the charging station
