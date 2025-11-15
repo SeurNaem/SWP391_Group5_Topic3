@@ -11,14 +11,12 @@ import {
     Alert,
     Steps,
     Form,
-    InputNumber,
     Input,
     Select,
     message,
     Spin
 } from 'antd';
 import {
-    ArrowLeftOutlined,
     CreditCardOutlined,
     WalletOutlined,
     CheckCircleOutlined,
@@ -26,12 +24,12 @@ import {
     ThunderboltOutlined,
     ReloadOutlined,
     CarOutlined,
-    ClockCircleOutlined,
-    QrcodeOutlined
+    QrcodeOutlined,
+    ArrowLeftOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { fetchWallets, deductFromWallet } from '../../service/wallet.api';
+
 import { createReservation } from '../../service/reservation.api';
 import { getUserProfile } from '../../service/user.api';
 import { getVehicleByDriverId } from '../../service/vehicle-sim.api';
@@ -101,13 +99,10 @@ const PaymentPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
-    const [paymentMethod, setPaymentMethod] = useState('wallet');
-    const [walletData, setWalletData] = useState(null);
-    const [chargingDuration, setChargingDuration] = useState(1); // Default 1 minute for ultra-quick demo
     const [estimatedCost, setEstimatedCost] = useState(0);
-    const [qrCodeUrl, setQrCodeUrl] = useState('');
-    const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, verified, failed
-    const [showQrCode, setShowQrCode] = useState(false);
+
+
+
     const [reservationData, setReservationData] = useState({
         vehicleModel: '',
         licensePlate: '',
@@ -128,69 +123,6 @@ const PaymentPage = () => {
         })) || [];
     }, [stationData?.chargingPoints]);
     const [createdReservation, setCreatedReservation] = useState(null);
-
-    const fetchWalletData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetchWallets();
-            // Assuming the API returns an array and we take the first wallet
-            if (response.data && response.data.length > 0) {
-                setWalletData(response.data[0]);
-            }
-        } catch (error) {
-            console.error('Error fetching wallet data:', error);
-            message.error('Failed to load wallet information');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Generate VietQR code URL
-    const generateVietQR = useCallback((amount) => {
-        // VietQR API format: https://img.vietqr.io/image/{BANK_ID}-{ACCOUNT_NO}-{TEMPLATE}.png?amount={AMOUNT}&addInfo={DESCRIPTION}
-        // Example bank info (you should replace with actual merchant info)
-        const bankId = 'MB'; // MB Bank
-        const accountNo = '0123456789'; // Replace with actual account
-        const template = 'compact2'; // QR template style
-        const addInfo = encodeURIComponent(`EV Charging - ${stationData?.stationName || 'Station'} - ${Date.now()}`);
-        
-        const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${Math.round(amount)}&addInfo=${addInfo}`;
-        
-        setQrCodeUrl(qrUrl);
-        return qrUrl;
-    }, [stationData]);
-
-    // Mock payment verification - in production, this would check with backend
-    const verifyQRPayment = async () => {
-        setLoading(true);
-        try {
-            // Simulate API call to verify payment
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // In production: call backend API to check if payment was received
-            // const response = await checkPaymentStatus(transactionId);
-            
-            // Mock: randomly succeed (in production, check actual payment)
-            const isVerified = true; // In production: response.data.isPaid
-            
-            if (isVerified) {
-                setPaymentStatus('verified');
-                message.success('Payment verified successfully!');
-                return true;
-            } else {
-                setPaymentStatus('failed');
-                message.error('Payment not found. Please try again.');
-                return false;
-            }
-        } catch (error) {
-            console.error('Payment verification error:', error);
-            setPaymentStatus('failed');
-            message.error('Failed to verify payment. Please try again.');
-            return false;
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const fetchUserVehicleInfo = useCallback(async () => {
         try {
@@ -266,7 +198,9 @@ const PaymentPage = () => {
 
         setConnectorCompatibilityError('');
         return true;
-    }, [vehicleData, availableChargingPoints]); const calculateCost = useCallback((duration) => {
+    }, [vehicleData, availableChargingPoints]);
+
+    const calculateCost = useCallback(() => {
         if (!reservationData.selectedChargingPoint || !stationData?.chargingPoints) return;
 
         // Find the selected charging point
@@ -276,10 +210,10 @@ const PaymentPage = () => {
 
         if (!selectedPoint) return;
 
-        // Calculate cost based on charging power and duration
-        // Duration is now in minutes for demo purposes
-        // Assuming average charging efficiency and power usage
-        const estimatedKwhUsage = selectedPoint.maxPower * (duration / 60) * 0.8; // Convert minutes to hours for energy calculation
+        // Since duration selection is moved to staff page, use a default cost calculation
+        // This is just for display purposes in the payment page
+        const defaultDurationMinutes = 30; // Default 30 minutes for cost estimation
+        const estimatedKwhUsage = selectedPoint.maxPower * (defaultDurationMinutes / 60) * 0.8;
         const cost = estimatedKwhUsage * selectedPoint.pricePerKwh;
         setEstimatedCost(cost);
     }, [reservationData.selectedChargingPoint, stationData?.chargingPoints]);
@@ -298,36 +232,65 @@ const PaymentPage = () => {
     // Separate useEffect for dynamic calculations
     useEffect(() => {
         if (reservationData.selectedChargingPoint) {
-            calculateCost(chargingDuration);
+            calculateCost();
         }
-    }, [chargingDuration, reservationData.selectedChargingPoint, calculateCost]);
-
-    // Separate useEffect for wallet data
-    useEffect(() => {
-        if (paymentMethod === 'wallet') {
-            fetchWalletData();
-        }
-    }, [paymentMethod]);
+    }, [reservationData.selectedChargingPoint, calculateCost]);
 
     const handleChargingPointChange = (pointId) => {
         setReservationData(prev => ({ ...prev, selectedChargingPoint: pointId }));
         // Check connector compatibility
         checkConnectorCompatibility(pointId);
         // Recalculate cost with new charging point
-        setTimeout(() => calculateCost(chargingDuration), 0);
+        setTimeout(() => calculateCost(), 0);
     };
 
-    const handleDurationChange = (value) => {
-        setChargingDuration(value);
-        if (reservationData.selectedChargingPoint) {
-            calculateCost(value);
+    // Handle immediate reservation creation (no payment step)
+    const handleCreateReservation = async () => {
+        if (!validateSelectedChargingPoint()) {
+            message.error('Please select a valid charging point');
+            return;
         }
-    };
 
-    const handlePaymentMethodChange = (method) => {
-        setPaymentMethod(method);
-        if (method === 'wallet') {
-            fetchWalletData();
+        if (connectorCompatibilityError) {
+            message.error('Please fix connector compatibility issues before proceeding');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Create a simple reservation
+            const reservationPayload = {
+                pointId: reservationData.selectedChargingPoint
+            };
+
+            console.log('Creating reservation with payload:', reservationPayload);
+
+            const reservation = await createReservation(reservationPayload);
+
+            // Set both states together using React's batching
+            React.startTransition(() => {
+                setCreatedReservation(reservation);
+                setCurrentStep(1);
+            });
+
+            message.success('Reservation created successfully!');
+        } catch (error) {
+            console.error('Reservation creation error:', error);
+
+            // Handle different error cases
+            if (error.response?.status === 400) {
+                message.error('Invalid reservation data. Please check your selection and try again.');
+            } else if (error.response?.status === 401) {
+                message.error('Authentication required. Please log in and try again.');
+            } else if (error.response?.status === 404) {
+                message.error('Charging point not found. Please select a different charging point.');
+            } else if (error.response?.status === 409) {
+                message.error('Charging point is already reserved. Please select a different point.');
+            } else {
+                message.error(`Reservation failed: ${error.response?.data || error.message}`);
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -353,271 +316,6 @@ const PaymentPage = () => {
         return selectedPoint.status === 'available';
     };
 
-    const handleContinueToDuration = () => {
-        if (!reservationData.vehicleModel) {
-            message.error('Please select your vehicle model.');
-            return;
-        }
-
-        if (!validateSelectedChargingPoint()) {
-            return;
-        }
-
-        // Check connector compatibility before proceeding
-        if (connectorCompatibilityError) {
-            message.error('Selected charging point is incompatible with your vehicle connector type.');
-            return;
-        }
-
-        setCurrentStep(1);
-    };
-
-    const handlePayment = async () => {
-        try {
-            setLoading(true);
-
-            // Check authentication and station data
-            const token = localStorage.getItem("token");
-            const isGoogleToken = token?.startsWith('ya29.');
-
-            if (!token || !account) {
-                message.error('Please log in to make a reservation.');
-                navigate('/login');
-                return;
-            }
-
-            if (isGoogleToken) {
-                message.warning('You are logged in with Google. Reservation functionality may be limited. Consider logging in with backend credentials.');
-            }
-
-            // Validate reservation data
-            if (!reservationData.vehicleModel || !reservationData.selectedChargingPoint) {
-                message.error('Please fill in all reservation details.');
-                setCurrentStep(0);
-                return;
-            }
-
-            // Validate charging point availability before payment
-            if (!validateSelectedChargingPoint()) {
-                setCurrentStep(0);
-                return;
-            }
-
-            // Validate station data
-            // Validate station data
-            if (!stationData.stationId && !stationData.id && !stationData.station_id) {
-                message.error('Invalid station data. Please select a station again.');
-                navigate('/map');
-                return;
-            }
-
-            // Skip availability check for now since the API endpoint may not be implemented
-            // This is a temporary workaround until the backend implements the availability check endpoint
-
-            // Validate wallet balance if using wallet payment
-            if (paymentMethod === 'wallet') {
-                if (!walletData) {
-                    message.error('Wallet data not loaded. Please try again.');
-                    return;
-                }
-
-                if (walletData.balance < estimatedCost) {
-                    message.error('Insufficient wallet balance. Please top up your wallet or use a different payment method.');
-                    return;
-                }
-
-                // Deduct from wallet
-                const deductionResponse = await deductFromWallet(walletData.walletId, estimatedCost);
-
-                if (deductionResponse.status === 200) {
-                    // Update wallet balance locally to reflect the change immediately
-                    setWalletData(prev => ({
-                        ...prev,
-                        balance: prev.balance - estimatedCost
-                    }));
-
-                    message.success(`Payment of $${estimatedCost.toFixed(2)} deducted from wallet successfully!`);
-                } else {
-                    throw new Error('Wallet deduction failed');
-                }
-            } else if (paymentMethod === 'qr') {
-                // VietQR payment flow
-                // Generate QR code and wait for user confirmation
-                generateVietQR(estimatedCost);
-                setShowQrCode(true);
-                setPaymentStatus('pending');
-                
-                // Show QR code modal - user will verify payment manually
-                message.info('Please scan the QR code to complete payment');
-                return; // Exit here, user will click "Verify Payment" button
-            } else {
-                // Simulate card payment processing
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                message.success('Payment processed successfully!');
-            }
-
-            // Create reservation after successful payment
-            // Backend needs duration information to set correct start/end times
-
-            // Validate that a charging point is selected
-            if (!reservationData.selectedChargingPoint) {
-                message.error('No charging point selected. Please go back and select a charging point.');
-                setCurrentStep(0);
-                setLoading(false);
-                return;
-            }
-
-            // Include duration and timing information for accurate reservation
-            const startTime = new Date().toISOString(); // Current time
-            const endTime = new Date(Date.now() + (chargingDuration * 60 * 1000)).toISOString(); // Start time + duration
-
-            const reservationPayload = {
-                pointId: reservationData.selectedChargingPoint,
-                duration: chargingDuration, // Duration in minutes
-                startTime: startTime,
-                endTime: endTime
-            };
-
-            console.log('Creating reservation with duration payload:', reservationPayload);
-            console.log('Selected duration:', chargingDuration, 'minutes');
-            console.log('Start time:', startTime);
-            console.log('End time:', endTime); let reservation = null;
-            try {
-                // Call the actual backend API
-                reservation = await createReservation(reservationPayload);                // Set both states together using React's batching
-                React.startTransition(() => {
-                    setCreatedReservation(reservation);
-                    setCurrentStep(3);
-                });
-
-                message.success('Payment completed! Your charging session has been reserved.');
-            } catch (error) {
-                // Handle different error cases
-                if (error.response?.status === 400) {
-                    message.error('Invalid reservation data. Please check your selection and try again.');
-                } else if (error.response?.status === 401) {
-                    message.error('Authentication required. Please log in and try again.');
-                } else if (error.response?.status === 404) {
-                    message.error('Charging point not found. Please select a different charging point.');
-                } else if (error.response?.status === 409) {
-                    message.error('Charging point is already reserved. Please select a different time or point.');
-                } else {
-                    message.error(`Reservation failed: ${error.response?.data || error.message}`);
-                }
-
-                // Create fallback reservation object for display
-                reservation = {
-                    reservationId: 'FAILED-' + Date.now(),
-                    status: 'failed',
-                    pointId: reservationPayload.pointId,
-                    error: error.response?.data || error.message,
-                    paymentStatus: 'completed',
-                    note: 'Payment was successful but reservation creation failed.'
-                };
-
-                // Set both states together for error case too
-                React.startTransition(() => {
-                    setCreatedReservation(reservation);
-                    setCurrentStep(3);
-                });
-            }
-
-        } catch (error) {
-            console.error('Payment/Reservation error:', error);
-
-            // Handle specific error cases
-            if (error.response?.status === 400) {
-                message.error('Invalid reservation data. Please check your inputs and try again.');
-            } else if (error.response?.status === 401) {
-                message.error('Authentication required. Please log in again.');
-                // Optionally redirect to login page
-                setTimeout(() => navigate('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                message.error('Access denied. You may not have permission to make reservations.');
-            } else if (error.response?.status === 404) {
-                message.error('API endpoint not found. The reservation feature may not be implemented yet.');
-            } else if (error.response?.status === 409) {
-                message.error('Reservation conflict: Time slot is already booked. Please choose a different time.');
-                setCurrentStep(0); // Go back to selection
-            } else if (error.response?.status === 500) {
-                message.error('Server error. Please try again later.');
-            } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-                message.error('Network error. Please check your connection and try again.');
-            } else {
-                message.error('Failed to create reservation. Please try again or contact support.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Handle QR payment completion after user verifies
-    const handleQRPaymentComplete = async () => {
-        setLoading(true);
-        try {
-            // Verify payment was received
-            const isVerified = await verifyQRPayment();
-            
-            if (!isVerified) {
-                return;
-            }
-
-            // Create reservation after successful payment verification
-            const startTime = new Date().toISOString();
-            const endTime = new Date(Date.now() + (chargingDuration * 60 * 1000)).toISOString();
-
-            const reservationPayload = {
-                pointId: reservationData.selectedChargingPoint,
-                duration: chargingDuration,
-                startTime: startTime,
-                endTime: endTime
-            };
-
-            let reservation = null;
-            try {
-                reservation = await createReservation(reservationPayload);
-                React.startTransition(() => {
-                    setCreatedReservation(reservation);
-                    setCurrentStep(3);
-                    setShowQrCode(false);
-                });
-                message.success('Payment completed! Your charging session has been reserved.');
-            } catch (error) {
-                if (error.response?.status === 400) {
-                    message.error('Invalid reservation data. Please check your selection and try again.');
-                } else if (error.response?.status === 401) {
-                    message.error('Authentication required. Please log in and try again.');
-                } else if (error.response?.status === 404) {
-                    message.error('Charging point not found. Please select a different charging point.');
-                } else if (error.response?.status === 409) {
-                    message.error('Charging point is already reserved. Please select a different time or point.');
-                } else {
-                    message.error(`Reservation failed: ${error.response?.data || error.message}`);
-                }
-
-                reservation = {
-                    reservationId: 'FAILED-' + Date.now(),
-                    status: 'failed',
-                    pointId: reservationPayload.pointId,
-                    error: error.response?.data || error.message,
-                    paymentStatus: 'completed',
-                    note: 'Payment was successful but reservation creation failed.'
-                };
-
-                React.startTransition(() => {
-                    setCreatedReservation(reservation);
-                    setCurrentStep(3);
-                    setShowQrCode(false);
-                });
-            }
-        } catch (error) {
-            console.error('QR Payment completion error:', error);
-            message.error('Failed to complete reservation. Please contact support.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     if (!stationData) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -633,14 +331,6 @@ const PaymentPage = () => {
         {
             title: 'Reservation Details',
             icon: <CarOutlined />
-        },
-        {
-            title: 'Select Duration',
-            icon: <ClockCircleOutlined />
-        },
-        {
-            title: 'Payment',
-            icon: <CreditCardOutlined />
         },
         {
             title: 'Confirmation',
@@ -821,341 +511,17 @@ const PaymentPage = () => {
                                     <Button
                                         type="primary"
                                         size="large"
-                                        onClick={handleContinueToDuration}
+                                        loading={loading}
+                                        onClick={handleCreateReservation}
                                         disabled={!reservationData.vehicleModel || !reservationData.selectedChargingPoint || connectorCompatibilityError}
                                     >
-                                        Continue to Duration
+                                        Create Reservation
                                     </Button>
                                 </div>
                             </Form>
                         )}
 
                         {currentStep === 1 && (
-                            <Form form={form} layout="vertical">
-                                <Alert
-                                    message="Select Charging Duration"
-                                    description="Choose how long you want to charge your vehicle"
-                                    type="info"
-                                    showIcon
-                                    style={{ marginBottom: '24px' }}
-                                />
-
-                                <Form.Item label="Charging Duration (minutes)">
-                                    <Space direction="vertical" style={{ width: '100%' }}>
-                                        <InputNumber
-                                            min={1}
-                                            max={480}
-                                            step={1}
-                                            value={chargingDuration}
-                                            onChange={handleDurationChange}
-                                            style={{ width: '200px' }}
-                                            formatter={value => `${value} min`}
-                                            parser={value => value.replace(' min', '')}
-                                        />
-                                        <Space wrap>
-                                            <Text type="secondary" style={{ fontSize: '12px' }}>Quick select (Demo):</Text>
-                                            <Button size="small" onClick={() => setChargingDuration(1)}>1min</Button>
-                                            <Button size="small" onClick={() => setChargingDuration(3)}>3min</Button>
-                                            <Button size="small" onClick={() => setChargingDuration(5)}>5min</Button>
-                                            <Button size="small" onClick={() => setChargingDuration(15)}>15min</Button>
-                                            <Button size="small" onClick={() => setChargingDuration(30)}>30min</Button>
-                                        </Space>
-                                    </Space>
-                                </Form.Item>
-
-                                <Alert
-                                    message={
-                                        <div>
-                                            <Text strong>Charging Session:</Text>
-                                            <br />
-                                            <Text>Duration: {chargingDuration} minute{chargingDuration !== 1 ? 's' : ''}</Text>
-                                            <br />
-                                            <Text>Start: Immediate (upon arrival)</Text>
-                                            <br />
-                                            {reservationData.selectedChargingPoint && (
-                                                <>
-                                                    <Text>Estimated Power Usage: {
-                                                        (() => {
-                                                            const selectedPoint = availableChargingPoints.find(
-                                                                p => p.id === reservationData.selectedChargingPoint
-                                                            );
-                                                            return selectedPoint ?
-                                                                `${(selectedPoint.power.replace('kW', '') * (chargingDuration / 60) * 0.8).toFixed(1)} kWh` :
-                                                                'N/A';
-                                                        })()
-                                                    }</Text>
-                                                    <br />
-                                                    <Text strong style={{ color: '#52c41a' }}>
-                                                        Estimated Cost: ${estimatedCost.toFixed(2)}
-                                                    </Text>
-                                                </>
-                                            )}
-                                        </div>
-                                    }
-                                    type="info"
-                                    showIcon
-                                    style={{ marginTop: '16px' }}
-                                />
-
-                                <Divider />
-
-                                <div style={{ textAlign: 'center' }}>
-                                    <Space>
-                                        <Button onClick={() => setCurrentStep(0)}>
-                                            Back to Details
-                                        </Button>
-                                        <Button
-                                            type="primary"
-                                            size="large"
-                                            onClick={() => setCurrentStep(2)}
-                                            disabled={!chargingDuration}
-                                        >
-                                            Continue to Payment
-                                        </Button>
-                                    </Space>
-                                </div>
-                            </Form>
-                        )}
-
-                        {currentStep === 2 && (
-                            <div>
-                                {(() => {
-                                    const token = localStorage.getItem("token");
-                                    const isGoogleToken = token?.startsWith('ya29.');
-                                    return isGoogleToken ? (
-                                        <Alert
-                                            message="Authentication Notice"
-                                            description="You're logged in with Google OAuth. Some features (like reservations) may require backend authentication. If payment fails, please try logging in with backend credentials."
-                                            type="info"
-                                            showIcon
-                                            style={{ marginBottom: '24px' }}
-                                        />
-                                    ) : null;
-                                })()}
-
-                                <Alert
-                                    message="Select Payment Method"
-                                    description="Choose how you want to pay for your charging session"
-                                    type="info"
-                                    showIcon
-                                    style={{ marginBottom: '24px' }}
-                                />                                <Form layout="vertical">
-                                    <Form.Item label="Payment Method">
-                                        <Select
-                                            value={paymentMethod}
-                                            onChange={handlePaymentMethodChange}
-                                            style={{ width: '100%' }}
-                                        >
-                                            <Option value="wallet">
-                                                <WalletOutlined style={{ marginRight: '8px' }} />
-                                                Digital Wallet
-                                            </Option>
-                                            <Option value="qr">
-                                                <QrcodeOutlined style={{ marginRight: '8px' }} />
-                                                VietQR (Bank Transfer)
-                                            </Option>
-                                            <Option value="card">
-                                                <CreditCardOutlined style={{ marginRight: '8px' }} />
-                                                Credit/Debit Card
-                                            </Option>
-                                        </Select>
-                                    </Form.Item>
-
-                                    {paymentMethod === 'wallet' && walletData && (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <Alert
-                                                message={
-                                                    <div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <div>
-                                                                <Text strong>Current Wallet Balance: </Text>
-                                                                <Text style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                                                                    ${walletData.balance?.toFixed(2) || '0.00'}
-                                                                </Text>
-                                                            </div>
-                                                            <Button
-                                                                size="small"
-                                                                icon={<ReloadOutlined />}
-                                                                onClick={fetchWalletData}
-                                                                loading={loading}
-                                                                title="Refresh wallet balance"
-                                                            >
-                                                                Refresh
-                                                            </Button>
-                                                        </div>
-                                                        <div style={{ marginTop: '8px' }}>
-                                                            <Text>Payment Amount: ${estimatedCost.toFixed(2)}</Text>
-                                                        </div>
-                                                        <div>
-                                                            <Text strong>Balance After Payment: </Text>
-                                                            <Text style={{
-                                                                color: (walletData.balance - estimatedCost) >= 0 ? '#52c41a' : '#ff4d4f',
-                                                                fontWeight: 'bold'
-                                                            }}>
-                                                                ${(walletData.balance - estimatedCost).toFixed(2)}
-                                                            </Text>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                type={walletData.balance >= estimatedCost ? 'success' : 'warning'}
-                                                showIcon
-                                            />
-                                            {walletData.balance < estimatedCost && (
-                                                <Alert
-                                                    message="Insufficient Balance"
-                                                    description={`You need $${(estimatedCost - walletData.balance).toFixed(2)} more to complete this payment.`}
-                                                    type="error"
-                                                    showIcon
-                                                    style={{ marginTop: '8px' }}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {paymentMethod === 'qr' && (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <Alert
-                                                message="VietQR Payment"
-                                                description={
-                                                    <div>
-                                                        <div style={{ marginBottom: '8px' }}>
-                                                            <Text strong>Payment Amount: </Text>
-                                                            <Text style={{ fontSize: '18px', fontWeight: 'bold', color: '#1890ff' }}>
-                                                                ${estimatedCost.toFixed(2)}
-                                                            </Text>
-                                                            <Text style={{ marginLeft: '8px', color: '#666' }}>
-                                                                (≈ {Math.round(estimatedCost * 24000).toLocaleString()} VND)
-                                                            </Text>
-                                                        </div>
-                                                        <div>
-                                                            <Text>Click the button below to generate a QR code for bank transfer payment.</Text>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                type="info"
-                                                showIcon
-                                                icon={<QrcodeOutlined />}
-                                            />
-
-                                            {showQrCode && (
-                                                <Card
-                                                    style={{
-                                                        marginTop: '16px',
-                                                        textAlign: 'center',
-                                                        border: '2px solid #1890ff'
-                                                    }}
-                                                >
-                                                    <Title level={4}>
-                                                        <QrcodeOutlined style={{ marginRight: '8px' }} />
-                                                        Scan QR Code to Pay
-                                                    </Title>
-                                                    <div style={{
-                                                        padding: '20px',
-                                                        backgroundColor: '#fff',
-                                                        display: 'inline-block',
-                                                        borderRadius: '8px',
-                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                                    }}>
-                                                        <img
-                                                            src={qrCodeUrl}
-                                                            alt="VietQR Payment Code"
-                                                            style={{
-                                                                width: '300px',
-                                                                height: '300px',
-                                                                border: '1px solid #d9d9d9',
-                                                                borderRadius: '4px'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div style={{ marginTop: '16px' }}>
-                                                        <Text strong style={{ fontSize: '16px' }}>
-                                                            Amount: ${estimatedCost.toFixed(2)}
-                                                        </Text>
-                                                        <br />
-                                                        <Text type="secondary">
-                                                            Use your banking app to scan this QR code
-                                                        </Text>
-                                                    </div>
-                                                    
-                                                    {paymentStatus === 'pending' && (
-                                                        <Alert
-                                                            message="Waiting for Payment"
-                                                            description="After completing the bank transfer, click 'Verify Payment' to confirm."
-                                                            type="warning"
-                                                            showIcon
-                                                            style={{ marginTop: '16px' }}
-                                                        />
-                                                    )}
-                                                    
-                                                    {paymentStatus === 'verified' && (
-                                                        <Alert
-                                                            message="Payment Verified!"
-                                                            description="Your payment has been confirmed. Processing reservation..."
-                                                            type="success"
-                                                            showIcon
-                                                            style={{ marginTop: '16px' }}
-                                                        />
-                                                    )}
-                                                    
-                                                    <div style={{ marginTop: '16px' }}>
-                                                        <Space>
-                                                            <Button
-                                                                onClick={() => {
-                                                                    setShowQrCode(false);
-                                                                    setPaymentStatus('pending');
-                                                                }}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <Button
-                                                                type="primary"
-                                                                loading={loading}
-                                                                onClick={handleQRPaymentComplete}
-                                                                disabled={paymentStatus === 'verified'}
-                                                            >
-                                                                Verify Payment & Reserve
-                                                            </Button>
-                                                        </Space>
-                                                    </div>
-                                                </Card>
-                                            )}
-                                        </div>
-                                    )}
-                                </Form>
-
-                                <div style={{ textAlign: 'center' }}>
-                                    <Space>
-                                        <Button onClick={() => setCurrentStep(1)}>
-                                            Back to Duration
-                                        </Button>
-                                        <Button
-                                            type="primary"
-                                            size="large"
-                                            loading={loading}
-                                            onClick={handlePayment}
-                                            disabled={
-                                                (paymentMethod === 'wallet' && walletData && walletData.balance < estimatedCost) ||
-                                                !reservationData.selectedChargingPoint ||
-                                                estimatedCost <= 0 ||
-                                                (paymentMethod === 'qr' && showQrCode)
-                                            }
-                                        >
-                                            {paymentMethod === 'qr' && !showQrCode ? (
-                                                'Generate QR Code'
-                                            ) : paymentMethod === 'qr' && showQrCode ? (
-                                                'QR Code Generated'
-                                            ) : estimatedCost > 0 ? (
-                                                `Pay $${estimatedCost.toFixed(2)} & Reserve`
-                                            ) : (
-                                                'Select charging point to continue'
-                                            )}
-                                        </Button>
-                                    </Space>
-                                </div>
-                            </div>
-                        )}
-
-                        {currentStep === 3 && (
                             <div style={{
                                 textAlign: 'center',
                                 backgroundColor: '#f0fff0', // Light green background
@@ -1176,7 +542,7 @@ const PaymentPage = () => {
                                     />
                                     <Title level={3} style={{ color: '#52c41a' }}>🎉 Reservation Confirmed! 🎉</Title>
                                     <Paragraph>
-                                        Your charging session has been successfully reserved and paid for. You will be redirected to the map shortly.
+                                        Your charging session has been successfully reserved. You will be redirected to the map shortly.
                                     </Paragraph>
                                 </div>
 
@@ -1228,47 +594,18 @@ const PaymentPage = () => {
                                     </div>
 
                                     <div style={{ marginBottom: '12px' }}>
-                                        <Text strong>End Time: </Text>
-                                        <Text>{dayjs(reservationData.startTime).add(chargingDuration, 'minute').format('MMM DD, YYYY at HH:mm')}</Text>
-                                    </div>
-
-                                    <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Duration: </Text>
-                                        <Text>{chargingDuration} minute{chargingDuration !== 1 ? 's' : ''}</Text>
+                                        <Text>Will be set by staff when starting the session</Text>
                                     </div>
 
                                     <Divider />
 
                                     <div style={{ marginBottom: '12px' }}>
-                                        <Text strong>Payment Method: </Text>
-                                        <Text>
-                                            {paymentMethod === 'wallet' ? (
-                                                <>
-                                                    <WalletOutlined style={{ marginRight: '4px' }} />
-                                                    Digital Wallet
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CreditCardOutlined style={{ marginRight: '4px' }} />
-                                                    Credit/Debit Card
-                                                </>
-                                            )}
-                                        </Text>
-                                    </div>
-                                    <div style={{ marginBottom: '12px' }}>
-                                        <Text strong>Amount Paid: </Text>
+                                        <Text strong>Status: </Text>
                                         <Text style={{ color: '#52c41a', fontWeight: 'bold' }}>
-                                            ${estimatedCost.toFixed(2)}
+                                            Reservation Created (Payment managed by staff)
                                         </Text>
                                     </div>
-                                    {paymentMethod === 'wallet' && walletData && (
-                                        <div>
-                                            <Text strong>Remaining Wallet Balance: </Text>
-                                            <Text style={{ color: '#1890ff', fontWeight: 'bold' }}>
-                                                ${walletData.balance?.toFixed(2) || '0.00'}
-                                            </Text>
-                                        </div>
-                                    )}
                                 </Card>
 
                                 <Alert
@@ -1298,11 +635,9 @@ const PaymentPage = () => {
                                             type="primary"
                                             onClick={() => navigate('/map', {
                                                 state: {
-                                                    paymentSuccess: true,
+                                                    reservationSuccess: true,
                                                     reservedStation: stationData,
-                                                    reservation: createdReservation,
-                                                    paymentMethod: paymentMethod,
-                                                    amountPaid: estimatedCost
+                                                    reservation: createdReservation
                                                 }
                                             })}
                                         >
@@ -1396,7 +731,7 @@ const PaymentPage = () => {
                             <div>
                                 <Text strong>Duration:</Text>
                                 <br />
-                                <Text>{chargingDuration} hours</Text>
+                                <Text>To be set by staff</Text>
                             </div>
 
                             <div>

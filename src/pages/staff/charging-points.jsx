@@ -312,21 +312,55 @@ const ChargingPointsPage = () => {
         return;
       }
 
-      // Calculate duration from start/end times if duration field is missing
-      let durationMinutes = matchingReservation.duration;
+      // Calculate duration - PRIORITIZE user-selected duration from payment page
+      console.log("Step 4a: Getting duration - checking localStorage first...");
 
-      if (!durationMinutes && matchingReservation.startTime && matchingReservation.endTime) {
-        const startTime = new Date(matchingReservation.startTime);
-        const endTime = new Date(matchingReservation.endTime);
-        durationMinutes = Math.round((endTime - startTime) / (1000 * 60)); // Convert ms to minutes
-        console.log("Step 4c: Calculated duration from start/end times:", durationMinutes, "minutes");
-      }
+      // First, try to get the user-selected duration from payment page
+      const key1 = `selectedDuration_${matchingReservation.reservationId}`;
+      const key2 = `selectedDuration_point_${matchingReservation.pointId}`;
+      const key3 = `lastSelectedDuration`;
+      const key4 = `duration_for_reservation_${matchingReservation.reservationId}`;
 
-      if (!durationMinutes) {
-        durationMinutes = 120; // Fallback to 120 minutes
-        console.log("Step 4d: Using fallback duration:", durationMinutes, "minutes");
+      const value1 = localStorage.getItem(key1);
+      const value2 = localStorage.getItem(key2);
+      const value3 = localStorage.getItem(key3);
+      const value4 = localStorage.getItem(key4);
+
+      const selectedDurationFromPayment = value1 || value2 || value3 || value4;
+
+      console.log("Step 4b: localStorage check results:");
+      console.log("  - keys checked:", key1, key2, key3, key4);
+      console.log("  - values found:", value1, value2, value3, value4);
+      console.log("  - selected duration from payment:", selectedDurationFromPayment);
+
+      let durationMinutes;
+
+      if (selectedDurationFromPayment) {
+        // Use the user-selected duration from payment page
+        durationMinutes = parseInt(selectedDurationFromPayment);
+        console.log("Step 4c: ✅ Using USER-SELECTED duration:", durationMinutes, "minutes");
+        // Clean up localStorage after using it
+        localStorage.removeItem(key1);
+        localStorage.removeItem(key2);
+        localStorage.removeItem(key4);
+        // Keep lastSelectedDuration for debugging
       } else {
-        console.log("Step 4e: Using duration:", durationMinutes, "minutes from reservation");
+        // Fallback to reservation-based calculation
+        durationMinutes = matchingReservation.duration;
+
+        if (!durationMinutes && matchingReservation.startTime && matchingReservation.endTime) {
+          const startTime = new Date(matchingReservation.startTime);
+          const endTime = new Date(matchingReservation.endTime);
+          durationMinutes = Math.round((endTime - startTime) / (1000 * 60)); // Convert ms to minutes
+          console.log("Step 4d: Calculated duration from start/end times:", durationMinutes, "minutes");
+        }
+
+        if (!durationMinutes) {
+          durationMinutes = 120; // Fallback to 120 minutes
+          console.log("Step 4e: Using fallback duration:", durationMinutes, "minutes");
+        } else {
+          console.log("Step 4f: ⚠️ Using API default duration:", durationMinutes, "minutes (user selection not found)");
+        }
       }
 
       // Prepare session data with all fields from reservation
