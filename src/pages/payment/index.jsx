@@ -102,7 +102,7 @@ const PaymentPage = () => {
     const [currentStep, setCurrentStep] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('wallet');
     const [walletData, setWalletData] = useState(null);
-    const [chargingDuration, setChargingDuration] = useState(1);
+    const [chargingDuration, setChargingDuration] = useState(5); // Default 5 minutes for quick demo
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [reservationData, setReservationData] = useState({
         vehicleModel: '',
@@ -226,8 +226,9 @@ const PaymentPage = () => {
         if (!selectedPoint) return;
 
         // Calculate cost based on charging power and duration
+        // Duration is now in minutes for demo purposes
         // Assuming average charging efficiency and power usage
-        const estimatedKwhUsage = selectedPoint.maxPower * duration * 0.8; // 80% efficiency
+        const estimatedKwhUsage = selectedPoint.maxPower * (duration / 60) * 0.8; // Convert minutes to hours for energy calculation
         const cost = estimatedKwhUsage * selectedPoint.pricePerKwh;
         setEstimatedCost(cost);
     }, [reservationData.selectedChargingPoint, stationData?.chargingPoints]);
@@ -395,9 +396,10 @@ const PaymentPage = () => {
             }
 
             // Create reservation after successful payment
-            // Based on backend API spec: CreateReservationDto only requires pointId
+            // Duration is already in minutes, no conversion needed for demo
             const reservationPayload = {
-                pointId: reservationData.selectedChargingPoint
+                pointId: reservationData.selectedChargingPoint,
+                duration: chargingDuration // Already in minutes
             };
 
             let reservation = null;
@@ -692,17 +694,27 @@ const PaymentPage = () => {
                                     style={{ marginBottom: '24px' }}
                                 />
 
-                                <Form.Item label="Charging Duration (hours)">
-                                    <InputNumber
-                                        min={0.5}
-                                        max={12}
-                                        step={0.5}
-                                        value={chargingDuration}
-                                        onChange={handleDurationChange}
-                                        style={{ width: '200px' }}
-                                        formatter={value => `${value} hours`}
-                                        parser={value => value.replace(' hours', '')}
-                                    />
+                                <Form.Item label="Charging Duration (minutes)">
+                                    <Space direction="vertical" style={{ width: '100%' }}>
+                                        <InputNumber
+                                            min={1}
+                                            max={480}
+                                            step={1}
+                                            value={chargingDuration}
+                                            onChange={handleDurationChange}
+                                            style={{ width: '200px' }}
+                                            formatter={value => `${value} min`}
+                                            parser={value => value.replace(' min', '')}
+                                        />
+                                        <Space wrap>
+                                            <Text type="secondary" style={{ fontSize: '12px' }}>Quick select (Demo):</Text>
+                                            <Button size="small" onClick={() => setChargingDuration(1)}>1min</Button>
+                                            <Button size="small" onClick={() => setChargingDuration(3)}>3min</Button>
+                                            <Button size="small" onClick={() => setChargingDuration(5)}>5min</Button>
+                                            <Button size="small" onClick={() => setChargingDuration(15)}>15min</Button>
+                                            <Button size="small" onClick={() => setChargingDuration(30)}>30min</Button>
+                                        </Space>
+                                    </Space>
                                 </Form.Item>
 
                                 <Alert
@@ -710,7 +722,7 @@ const PaymentPage = () => {
                                         <div>
                                             <Text strong>Charging Session:</Text>
                                             <br />
-                                            <Text>Duration: {chargingDuration} hour{chargingDuration !== 1 ? 's' : ''}</Text>
+                                            <Text>Duration: {chargingDuration} minute{chargingDuration !== 1 ? 's' : ''}</Text>
                                             <br />
                                             <Text>Start: Immediate (upon arrival)</Text>
                                             <br />
@@ -722,7 +734,7 @@ const PaymentPage = () => {
                                                                 p => p.id === reservationData.selectedChargingPoint
                                                             );
                                                             return selectedPoint ?
-                                                                `${(selectedPoint.power.replace('kW', '') * chargingDuration * 0.8).toFixed(1)} kWh` :
+                                                                `${(selectedPoint.power.replace('kW', '') * (chargingDuration / 60) * 0.8).toFixed(1)} kWh` :
                                                                 'N/A';
                                                         })()
                                                     }</Text>
@@ -951,12 +963,12 @@ const PaymentPage = () => {
 
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>End Time: </Text>
-                                        <Text>{dayjs(reservationData.startTime).add(chargingDuration, 'hour').format('MMM DD, YYYY at HH:mm')}</Text>
+                                        <Text>{dayjs(reservationData.startTime).add(chargingDuration, 'minute').format('MMM DD, YYYY at HH:mm')}</Text>
                                     </div>
 
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Duration: </Text>
-                                        <Text>{chargingDuration} hours</Text>
+                                        <Text>{chargingDuration} minute{chargingDuration !== 1 ? 's' : ''}</Text>
                                     </div>
 
                                     <Divider />

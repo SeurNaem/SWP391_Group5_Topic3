@@ -31,7 +31,7 @@ class SessionManager {
         // Clear existing timer if any
         this.stopMonitoring(pointId);
 
-        console.log(`SessionManager: Starting monitoring for session ${sessionId}, duration: ${duration}h`);
+        console.log(`SessionManager: Starting monitoring for session ${sessionId}, duration: ${duration} minutes`);
 
         const intervalId = setInterval(async () => {
             try {
@@ -105,7 +105,7 @@ class SessionManager {
             // Show success notification
             notification.success({
                 message: 'Session Automatically Stopped',
-                description: `Session ${sessionId} at Point ${pointId} has been automatically stopped after ${session.duration} hours. Energy consumed: ${estimatedEnergy}kWh`,
+                description: `Session ${sessionId} at Point ${pointId} has been automatically stopped after ${session.duration} minutes. Energy consumed: ${estimatedEnergy}kWh`,
                 duration: 15,
                 placement: 'topRight'
             });
@@ -128,7 +128,7 @@ class SessionManager {
             // Show error notification
             notification.error({
                 message: 'Auto-Stop Failed',
-                description: `Session ${sessionId} has exceeded its ${session.duration}h duration but could not be stopped automatically. Please stop it manually.`,
+                description: `Session ${sessionId} has exceeded its ${session.duration} minute duration but could not be stopped automatically. Please stop it manually.`,
                 duration: 0, // Don't auto-close
                 placement: 'topRight'
             });
@@ -156,15 +156,15 @@ class SessionManager {
     /**
      * Calculate session progress and time remaining
      * @param {string} startTime - ISO string of start time
-     * @param {number} duration - Duration in hours
+     * @param {number} duration - Duration in minutes
      * @returns {Object} Progress information
      */
     calculateProgress(startTime, duration) {
         const start = dayjs(startTime);
-        const end = start.add(duration, 'hours');
+        const end = start.add(duration, 'minutes'); // Changed from hours to minutes
         const now = dayjs();
 
-        const totalMinutes = duration * 60;
+        const totalMinutes = duration; // Already in minutes, no conversion needed
         const elapsedMinutes = now.diff(start, 'minute');
         const remainingMinutes = end.diff(now, 'minute');
 
