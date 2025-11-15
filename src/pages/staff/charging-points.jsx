@@ -22,7 +22,6 @@ import {
 } from "antd";
 import {
   ThunderboltOutlined,
-  ReloadOutlined,
   ArrowLeftOutlined,
   ApiOutlined,
   DollarOutlined,
@@ -39,7 +38,6 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { getStationChargingPoints, startSession, stopSession, getStationReservations, getStationActiveSessions } from "../../service/staff.api";
-import { triggerAutoStop } from "../../service/auto-stop.api";
 import { sessionManager } from "../../utils/SessionManager";
 import dayjs from "dayjs";
 
@@ -52,8 +50,8 @@ const ChargingPointsPage = () => {
   const [actionLoading, setActionLoading] = useState({});
   const [activeSessions, setActiveSessions] = useState({}); // Store sessionId for each pointId
   const [sessionTimers, setSessionTimers] = useState({}); // Store session progress info
-  const [expiredSessions, setExpiredSessions] = useState([]); // Store sessions that need auto-stop
-  const [autoStopInProgress, setAutoStopInProgress] = useState(new Set()); // Track ongoing auto-stops
+  const [_expiredSessions, setExpiredSessions] = useState([]); // Store sessions that are expired (for display only)
+  const [manuallyExpiredSessions, setManuallyExpiredSessions] = useState({}); // Store expired sessions that need manual stop
   const navigate = useNavigate();
   const { stationId } = useParams();
 
@@ -66,6 +64,11 @@ const ChargingPointsPage = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [showQrCode, setShowQrCode] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('pending');
+
+  // Duration Modal States
+  const [durationModalVisible, setDurationModalVisible] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState(5); // Default 5 minutes
+  const [selectedPoint, setSelectedPoint] = useState(null);
 
   const fetchChargingPoints = useCallback(async () => {
     setLoading(true);
@@ -155,17 +158,31 @@ const ChargingPointsPage = () => {
         return updated;
       });
 
+      // Remove from manually expired sessions (if it was expired)
+      setManuallyExpiredSessions((prev) => {
+        const updated = { ...prev };
+        delete updated[pointId];
+        return updated;
+      });
+
+      // Clear session timers for this point
+      setSessionTimers((prev) => {
+        const updated = { ...prev };
+        delete updated[pointId];
+        return updated;
+      });
+
       // Close modal and show success
       setPaymentModalVisible(false);
       setShowQrCode(false);
       setPaymentStatus('pending');
       message.success('Payment completed and session stopped successfully!');
 
-      // Refresh charging points
-      console.log("Step 9: Refreshing charging points...");
+      // Refresh charging points after a delay to allow staff to see the completion
+      console.log("Step 9: Session stopped successfully - manual refresh needed or will auto-refresh in 5 seconds");
       setTimeout(() => {
         fetchChargingPoints();
-      }, 1000);
+      }, 5000); // Increased delay to 5 seconds so staff can see the completion
     } catch (error) {
       console.error('Payment/Stop session error:', error);
       message.error('Failed to complete transaction. Please try again.');
@@ -174,8 +191,8 @@ const ChargingPointsPage = () => {
     }
   };
 
-  // Simplified auto-stop functionality using client-side expiry detection
-  // No need for backend expired-sessions endpoint - we check active sessions
+  // Check for expired sessions - only track for display, no auto-stop
+  // Staff must manually press stop button to end expired sessions
   const checkForExpiredSessions = useCallback(async () => {
     try {
       // Get active sessions from the backend
@@ -195,7 +212,7 @@ const ChargingPointsPage = () => {
         }
 
         const startTime = new Date(session.startTime);
-        const plannedEndTime = new Date(startTime.getTime() + (session.duration * 60 * 1000)); // Changed from hours to minutes
+        const plannedEndTime = new Date(startTime.getTime() + (session.duration * 60 * 1000));
         const currentTime = new Date();
         const remainingMinutes = (plannedEndTime - currentTime) / (1000 * 60);
 
@@ -204,55 +221,9 @@ const ChargingPointsPage = () => {
 
       setExpiredSessions(expiredSessionsList || []);
 
-      // Trigger auto-stop for expired sessions
+      // Only log expired sessions - no auto-stop
       if (expiredSessionsList && expiredSessionsList.length > 0) {
-        console.log(`Found ${expiredSessionsList.length} expired sessions:`, expiredSessionsList);
-
-        for (const session of expiredSessionsList) {
-          const sessionKey = `${session.sessionId}_${session.pointId}`;
-
-          // Skip if auto-stop already in progress
-          if (autoStopInProgress.has(sessionKey)) {
-            continue;
-          }
-
-          setAutoStopInProgress(prev => new Set(prev).add(sessionKey));
-
-          try {
-            // Calculate estimated energy consumption
-            const startTime = new Date(session.startTime);
-            const currentTime = new Date();
-            const actualHours = (currentTime - startTime) / (1000 * 60 * 60);
-            const estimatedEnergy = Math.round(actualHours * (session.maxPower || 25) * 0.8 * 100) / 100;
-
-            await triggerAutoStop(session.sessionId, {
-              energyConsumed: estimatedEnergy,
-              paymentMethod: session.paymentMethod || "e-wallet"
-            });
-
-            message.success(`Session ${session.sessionId} auto-stopped after ${session.duration || 'planned'} minutes`);
-
-            // Remove from active sessions
-            setActiveSessions(prev => {
-              const updated = { ...prev };
-              delete updated[session.pointId];
-              return updated;
-            });
-
-          } catch (autoStopError) {
-            console.error(`Failed to auto-stop session ${session.sessionId}:`, autoStopError);
-            message.error(`Auto-stop failed for session ${session.sessionId}. Please stop manually.`);
-          } finally {
-            setAutoStopInProgress(prev => {
-              const updated = new Set(prev);
-              updated.delete(sessionKey);
-              return updated;
-            });
-          }
-        }
-
-        // Refresh charging points after auto-stop
-        setTimeout(() => fetchChargingPoints(), 2000);
+        console.log(`Found ${expiredSessionsList.length} expired sessions (staff must stop manually):`, expiredSessionsList);
       }
     } catch (error) {
       console.error('Error checking expired sessions:', error);
@@ -263,31 +234,81 @@ const ChargingPointsPage = () => {
         console.warn('Unexpected error in expired session check:', error.message);
       }
     }
-  }, [stationId, autoStopInProgress, fetchChargingPoints]);
+  }, [stationId]);
 
   // Calculate session progress and time remaining with seconds precision
   // Duration is now stored in minutes instead of hours
   const calculateSessionProgress = useCallback((session) => {
-    if (!session.startTime || !session.duration) return null;
+    if (!session.startTime || !session.duration) {
+      console.log("calculateSessionProgress: Missing data", { startTime: session.startTime, duration: session.duration });
+      return null;
+    }
 
     const startTime = dayjs(session.startTime);
-    const endTime = startTime.add(session.duration, 'minutes'); // Changed from hours to minutes
+    // Use API endTime if available, otherwise calculate from duration
+    const endTime = session.apiEndTime ? dayjs(session.apiEndTime) : startTime.add(session.duration, 'minutes');
     const now = dayjs();
 
-    const totalDuration = session.duration; // Already in minutes, no conversion needed
-    const elapsed = now.diff(startTime, 'minute');
-    const remaining = endTime.diff(now, 'minute');
-    const remainingSeconds = endTime.diff(now, 'second');
+    // Calculate total duration in seconds from actual start/end times
+    const totalDurationSeconds = endTime.diff(startTime, 'second');
+    let elapsedSeconds = now.diff(startTime, 'second');
+    let remainingSeconds = endTime.diff(now, 'second');
 
-    return {
-      progress: Math.min(100, Math.max(0, (elapsed / totalDuration) * 100)),
-      remainingMinutes: Math.max(0, remaining),
+    // Handle clock synchronization issues - if elapsed time is negative, 
+    // it means frontend clock is behind backend clock
+    if (elapsedSeconds < 0) {
+      console.warn("Clock sync issue detected - frontend clock is behind backend. Adjusting calculation.");
+      elapsedSeconds = 0; // Session hasn't started yet from frontend perspective
+      remainingSeconds = totalDurationSeconds; // Full duration remaining
+    }
+
+    // Calculate progress with seconds precision for better accuracy
+    const progressPercent = Math.min(100, Math.max(0, (elapsedSeconds / totalDurationSeconds) * 100));
+
+    // Determine session status with clock sync consideration
+    let sessionStatus;
+    if (remainingSeconds <= 0) {
+      sessionStatus = "EXPIRED";
+    } else if (elapsedSeconds <= 0) {
+      sessionStatus = "STARTING"; // Session hasn't started yet from frontend perspective
+    } else {
+      sessionStatus = "ACTIVE";
+    }
+
+    const result = {
+      progress: progressPercent,
+      remainingMinutes: Math.max(0, Math.ceil(remainingSeconds / 60)),
       remainingSeconds: Math.max(0, remainingSeconds),
-      isExpired: remaining <= 0,
+      isExpired: remainingSeconds <= 0,
+      sessionStatus: sessionStatus,
       endTime: endTime.format('HH:mm'),
-      elapsedMinutes: elapsed,
-      overrunMinutes: remaining < 0 ? Math.abs(remaining) : 0
+      elapsedMinutes: Math.floor(elapsedSeconds / 60),
+      overrunMinutes: remainingSeconds < 0 ? Math.ceil(Math.abs(remainingSeconds) / 60) : 0
     };
+
+    // Debug logging for short durations
+    if (session.duration <= 5) {
+      console.log("calculateSessionProgress DEBUG for session:", session.sessionId, {
+        sessionDuration: session.duration,
+        usingApiEndTime: !!session.apiEndTime,
+        startTime: startTime.format(),
+        endTime: endTime.format(),
+        now: now.format(),
+        totalDurationSeconds,
+        elapsedSeconds,
+        remainingSeconds,
+        progressPercent,
+        sessionStatus: result.sessionStatus,
+        // Add timezone debugging
+        startTimeISO: startTime.toISOString(),
+        endTimeISO: endTime.toISOString(),
+        nowISO: now.toISOString(),
+        timeDifference: `now is ${elapsedSeconds < 0 ? Math.abs(elapsedSeconds) + ' seconds before' : elapsedSeconds + ' seconds after'} start`,
+        result
+      });
+    }
+
+    return result;
   }, []);
 
   // Update session timers
@@ -297,16 +318,32 @@ const ChargingPointsPage = () => {
       Object.keys(activeSessions).forEach(pointId => {
         const session = activeSessions[pointId];
         if (session && session.startTime && session.duration) {
-          updated[pointId] = calculateSessionProgress({
+          const progressData = calculateSessionProgress({
             startTime: session.startTime,
             duration: session.duration,
-            sessionId: session.sessionId
+            sessionId: session.sessionId,
+            apiEndTime: session.apiEndTime
           });
+
+          updated[pointId] = progressData;
+
+          // Check if session just expired and store it for manual stop
+          if (progressData && progressData.isExpired && !manuallyExpiredSessions[pointId]) {
+            setManuallyExpiredSessions(prevExpired => ({
+              ...prevExpired,
+              [pointId]: {
+                ...session,
+                expiredAt: new Date().toISOString(),
+                progress: progressData
+              }
+            }));
+            console.log(`Session ${session.sessionId} for point ${pointId} has expired and requires manual stop`);
+          }
         }
       });
       return updated;
     });
-  }, [activeSessions, calculateSessionProgress]);
+  }, [activeSessions, calculateSessionProgress, manuallyExpiredSessions]);
 
   useEffect(() => {
     if (stationId) {
@@ -314,7 +351,7 @@ const ChargingPointsPage = () => {
     }
   }, [stationId, fetchChargingPoints]);
 
-  // Set up simplified auto-stop monitoring with client-side expiry detection
+  // Set up simplified session monitoring for expiry detection
   useEffect(() => {
     if (stationId) {
       // Check for expired sessions using active sessions API + client-side logic every 30 seconds
@@ -322,10 +359,10 @@ const ChargingPointsPage = () => {
         checkForExpiredSessions();
       }, 30000);
 
-      // Update session timers every 10 seconds for responsive countdown
+      // Update session timers every 2 seconds for responsive countdown (especially for short durations)
       const timerUpdater = setInterval(() => {
         updateSessionTimers();
-      }, 10000);
+      }, 2000);
 
       // Initial checks
       checkForExpiredSessions();
@@ -352,8 +389,8 @@ const ChargingPointsPage = () => {
             }));
           },
           (pointId, sessionId) => {
-            // Session was auto-stopped
-            console.log(`Session ${sessionId} was auto-stopped for point ${pointId}`);
+            // Session was manually stopped by staff
+            console.log(`Session ${sessionId} was manually stopped for point ${pointId}`);
             setActiveSessions(prev => {
               const updated = { ...prev };
               delete updated[pointId];
@@ -361,8 +398,9 @@ const ChargingPointsPage = () => {
             });
           },
           () => {
-            // Refresh needed
-            fetchChargingPoints();
+            // Refresh callback - avoid automatic refresh for expired sessions
+            // Let expired sessions remain visible for manual stop
+            console.log("Session state changed - manual refresh available if needed");
           }
         );
       }
@@ -375,10 +413,15 @@ const ChargingPointsPage = () => {
   }, [activeSessions, fetchChargingPoints]);
 
   const handleStartSession = async (point) => {
-    console.log("=== START SESSION CLICKED ===");
+    // Show duration selection modal for reserved points
+    setSelectedPoint(point);
+    setDurationModalVisible(true);
+  };
+
+  const handleStartSessionWithDuration = async (point, durationMinutes) => {
+    console.log("=== START SESSION WITH DURATION ===");
     console.log("Point object received:", point);
-    console.log("Point ID:", point.pointId);
-    console.log("Point Status:", point.status);
+    console.log("Selected duration:", durationMinutes, "minutes");
 
     setActionLoading((prev) => ({ ...prev, [point.pointId]: "start" }));
     try {
@@ -397,14 +440,6 @@ const ChargingPointsPage = () => {
       );
 
       console.log("Step 4: Matching reservation found:", matchingReservation);
-      console.log("Step 4a: Reservation fields:", Object.keys(matchingReservation));
-      console.log("Step 4b: Checking for duration fields:", {
-        duration: matchingReservation.duration,
-        chargingDuration: matchingReservation.chargingDuration,
-        minutes: matchingReservation.minutes,
-        startTime: matchingReservation.startTime,
-        endTime: matchingReservation.endTime
-      });
 
       if (!matchingReservation) {
         console.error("ERROR: No confirmed reservation found for this charging point");
@@ -421,56 +456,7 @@ const ChargingPointsPage = () => {
         return;
       }
 
-      // Calculate duration - PRIORITIZE user-selected duration from payment page
-      console.log("Step 4a: Getting duration - checking localStorage first...");
-
-      // First, try to get the user-selected duration from payment page
-      const key1 = `selectedDuration_${matchingReservation.reservationId}`;
-      const key2 = `selectedDuration_point_${matchingReservation.pointId}`;
-      const key3 = `lastSelectedDuration`;
-      const key4 = `duration_for_reservation_${matchingReservation.reservationId}`;
-
-      const value1 = localStorage.getItem(key1);
-      const value2 = localStorage.getItem(key2);
-      const value3 = localStorage.getItem(key3);
-      const value4 = localStorage.getItem(key4);
-
-      const selectedDurationFromPayment = value1 || value2 || value3 || value4;
-
-      console.log("Step 4b: localStorage check results:");
-      console.log("  - keys checked:", key1, key2, key3, key4);
-      console.log("  - values found:", value1, value2, value3, value4);
-      console.log("  - selected duration from payment:", selectedDurationFromPayment);
-
-      let durationMinutes;
-
-      if (selectedDurationFromPayment) {
-        // Use the user-selected duration from payment page
-        durationMinutes = parseInt(selectedDurationFromPayment);
-        console.log("Step 4c: ✅ Using USER-SELECTED duration:", durationMinutes, "minutes");
-        // Clean up localStorage after using it
-        localStorage.removeItem(key1);
-        localStorage.removeItem(key2);
-        localStorage.removeItem(key4);
-        // Keep lastSelectedDuration for debugging
-      } else {
-        // Fallback to reservation-based calculation
-        durationMinutes = matchingReservation.duration;
-
-        if (!durationMinutes && matchingReservation.startTime && matchingReservation.endTime) {
-          const startTime = new Date(matchingReservation.startTime);
-          const endTime = new Date(matchingReservation.endTime);
-          durationMinutes = Math.round((endTime - startTime) / (1000 * 60)); // Convert ms to minutes
-          console.log("Step 4d: Calculated duration from start/end times:", durationMinutes, "minutes");
-        }
-
-        if (!durationMinutes) {
-          durationMinutes = 120; // Fallback to 120 minutes
-          console.log("Step 4e: Using fallback duration:", durationMinutes, "minutes");
-        } else {
-          console.log("Step 4f: ⚠️ Using API default duration:", durationMinutes, "minutes (user selection not found)");
-        }
-      }
+      console.log("Step 5: Using staff-selected duration:", durationMinutes, "minutes");
 
       // Prepare session data with all fields from reservation
       const sessionData = {
@@ -483,7 +469,7 @@ const ChargingPointsPage = () => {
       };
 
       console.log("Step 5: Prepared session data with duration:", sessionData);
-      console.log("Step 5a: Auto-stop will trigger after", durationMinutes, "minutes");
+      console.log("Step 5a: Session duration set to", durationMinutes, "minutes (manual stop required when expired)");
       console.log("Step 6: Calling startSession API...");
       // Start the session - this will change status from "reserved" to "in use"
       const response = await startSession(sessionData);
@@ -502,17 +488,25 @@ const ChargingPointsPage = () => {
         const actualDuration = sessionData.minutes;
         console.log("Step 7d: Using actual duration from session data:", actualDuration);
 
+        // Use actual start and end times from API response instead of calculating our own
+        const apiStartTime = response?.session?.startTime || response?.startTime;
+        const apiEndTime = response?.session?.endTime || response?.endTime;
+
+        console.log("Step 7e: API times - Start:", apiStartTime, "End:", apiEndTime);
+
         const sessionInfo = {
           sessionId: sessionId,
           pointId: point.pointId,
           paymentMethod: sessionData.paymentMethod,
           duration: actualDuration, // Use actual duration from session data
-          startTime: new Date().toISOString(), // Current time as start time
-          endTime: new Date(Date.now() + (actualDuration * 60 * 1000)).toISOString(), // Expected end time
+          startTime: apiStartTime || new Date().toISOString(), // Use API start time or fallback
+          endTime: apiEndTime || new Date(Date.now() + (actualDuration * 60 * 1000)).toISOString(), // Use API end time or fallback
           vehicleType: matchingReservation.vehicleType,
           licensePlate: matchingReservation.licensePlate,
           maxPower: point.maxPower || 25, // For energy calculation
-          userId: matchingReservation.userId
+          userId: matchingReservation.userId,
+          // Add API endTime for more accurate progress calculation
+          apiEndTime: apiEndTime
         };
 
         setActiveSessions((prev) => ({
@@ -520,12 +514,20 @@ const ChargingPointsPage = () => {
           [point.pointId]: sessionInfo
         }));
 
-        console.log("Step 7e: Session stored successfully with auto-stop data:", sessionInfo);
-        console.log("Step 7f: Auto-stop scheduled for:", sessionInfo.endTime);
+        console.log("Step 7f: Session stored successfully with session data:", sessionInfo);
+        console.log("Step 7g: Session will expire at:", sessionInfo.endTime);
+        console.log("Step 7h: Debug - Duration check:", {
+          actualDuration: actualDuration,
+          sessionInfoDuration: sessionInfo.duration,
+          startTime: sessionInfo.startTime,
+          endTime: sessionInfo.endTime,
+          durationFromTimes: new Date(sessionInfo.endTime) - new Date(sessionInfo.startTime),
+          durationInMinutes: (new Date(sessionInfo.endTime) - new Date(sessionInfo.startTime)) / (1000 * 60)
+        });
 
-        // Show auto-stop confirmation message
+        // Show session start confirmation message
         message.success({
-          content: `Session started! Will automatically stop after ${actualDuration} minutes`,
+          content: `Session started! Duration: ${actualDuration} minutes. Manual stop required when expired.`,
           duration: 5,
           icon: <RobotOutlined style={{ color: '#52c41a' }} />
         });
@@ -566,14 +568,18 @@ const ChargingPointsPage = () => {
 
     setActionLoading((prev) => ({ ...prev, [pointId]: "stop" }));
     try {
-      // First, try to get sessionId from our stored active sessions
+      // First, try to get sessionId from our stored active sessions or expired sessions
       let sessionId = null;
       let paymentMethod = "e-wallet";
 
       if (activeSessions[pointId] && activeSessions[pointId].sessionId) {
         sessionId = activeSessions[pointId].sessionId;
         paymentMethod = activeSessions[pointId].paymentMethod || "e-wallet";
-        console.log("Step 1: Using stored sessionId:", sessionId);
+        console.log("Step 1: Using stored sessionId from active sessions:", sessionId);
+      } else if (manuallyExpiredSessions[pointId] && manuallyExpiredSessions[pointId].sessionId) {
+        sessionId = manuallyExpiredSessions[pointId].sessionId;
+        paymentMethod = manuallyExpiredSessions[pointId].paymentMethod || "e-wallet";
+        console.log("Step 1: Using stored sessionId from expired sessions:", sessionId);
       } else {
         // Fallback: Get sessionId from active sessions API
         try {
@@ -753,49 +759,8 @@ const ChargingPointsPage = () => {
                 <Text type="secondary">Station ID: {stationId}</Text>
               </Space>
             </Col>
-            <Col>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={fetchChargingPoints}
-                loading={loading}
-              >
-                Refresh
-              </Button>
-            </Col>
           </Row>
         </Card>
-
-        {/* Auto-Stop Status Alert */}
-        {(Object.keys(activeSessions).length > 0 || expiredSessions.length > 0) && (
-          <Alert
-            message={
-              <div>
-                <RobotOutlined style={{ marginRight: '8px' }} />
-                Auto-Stop Monitoring Active
-              </div>
-            }
-            description={
-              <div>
-                <div style={{ marginBottom: '8px' }}>
-                  <strong>Active Sessions:</strong> {Object.keys(activeSessions).length} session(s) with automatic duration management
-                </div>
-                {expiredSessions.length > 0 && (
-                  <div style={{ color: '#ff4d4f' }}>
-                    <WarningOutlined style={{ marginRight: '4px' }} />
-                    <strong>Expired:</strong> {expiredSessions.length} session(s) exceeded duration and will be auto-stopped
-                  </div>
-                )}
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                  Sessions will automatically stop when their planned duration is reached.
-                  Warnings will be sent at 15min and 5min before expiry.
-                </div>
-              </div>
-            }
-            type={expiredSessions.length > 0 ? "warning" : "info"}
-            showIcon
-            style={{ marginBottom: "24px", borderRadius: "12px" }}
-          />
-        )}
 
         {/* Statistics Cards */}
         <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
@@ -907,19 +872,22 @@ const ChargingPointsPage = () => {
                           }
                         />
 
-                        {/* Countdown Timer for Active Sessions */}
-                        {(point.status?.toLowerCase() === "in use" ||
+                        {/* Countdown Timer for Active Sessions or Manually Expired Sessions */}
+                        {((point.status?.toLowerCase() === "in use" ||
                           point.status?.toLowerCase() === "in_use" ||
-                          point.status?.toLowerCase() === "inuse") &&
-                          sessionTimers[point.pointId] && (
+                          point.status?.toLowerCase() === "inuse") ||
+                          manuallyExpiredSessions[point.pointId]) &&
+                          (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]) && (
                             <div style={{
                               marginTop: "12px",
                               padding: "8px 12px",
-                              backgroundColor: sessionTimers[point.pointId].isExpired ? "#fff2f0" : "#f6ffed",
-                              border: sessionTimers[point.pointId].isExpired ? "1px solid #ffccc7" : "1px solid #b7eb8f",
+                              backgroundColor: (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired ? "#fff2f0" :
+                                (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? "#fff7e6" : "#f6ffed",
+                              border: (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired ? "1px solid #ffccc7" :
+                                (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? "1px solid #ffd591" : "1px solid #b7eb8f",
                               borderRadius: "8px"
                             }}>
-                              {sessionTimers[point.pointId].isExpired ? (
+                              {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired ? (
                                 <div style={{ textAlign: "center" }}>
                                   <div style={{
                                     fontSize: "16px",
@@ -930,7 +898,23 @@ const ChargingPointsPage = () => {
                                     <WarningOutlined /> SESSION EXPIRED
                                   </div>
                                   <div style={{ fontSize: "12px", color: "#ff7875" }}>
-                                    Overrun: {Math.round(sessionTimers[point.pointId].overrunMinutes)} minutes
+                                    Overrun: {Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.overrunMinutes || 0)} minutes
+                                  </div>
+                                </div>
+                              ) : (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? (
+                                <div style={{ textAlign: "center" }}>
+                                  <div style={{ fontSize: "12px", color: "#fa8c16", marginBottom: "2px" }}>
+                                    <ClockCircleOutlined /> SESSION STARTING
+                                  </div>
+                                  <div style={{
+                                    fontSize: "16px",
+                                    fontWeight: "bold",
+                                    color: "#fa8c16"
+                                  }}>
+                                    Please wait...
+                                  </div>
+                                  <div style={{ fontSize: "11px", color: "#8c8c8c" }}>
+                                    Synchronizing with server
                                   </div>
                                 </div>
                               ) : (
@@ -941,22 +925,22 @@ const ChargingPointsPage = () => {
                                   <div style={{
                                     fontSize: "18px",
                                     fontWeight: "bold",
-                                    color: sessionTimers[point.pointId].remainingMinutes <= 15 ? "#faad14" :
-                                      sessionTimers[point.pointId].remainingMinutes <= 5 ? "#ff4d4f" : "#52c41a"
+                                    color: (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes <= 15 ? "#faad14" :
+                                      (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes <= 5 ? "#ff4d4f" : "#52c41a"
                                   }}>
-                                    {sessionTimers[point.pointId].remainingMinutes <= 5 && sessionTimers[point.pointId].remainingMinutes > 0 ? (
+                                    {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes <= 5 && (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes > 0 ? (
                                       // Show seconds when less than 5 minutes remaining
-                                      `${Math.floor(sessionTimers[point.pointId].remainingSeconds / 60)}:${String(sessionTimers[point.pointId].remainingSeconds % 60).padStart(2, '0')}`
-                                    ) : sessionTimers[point.pointId].remainingMinutes < 60 ? (
+                                      `${Math.floor((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingSeconds / 60)}:${String((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingSeconds % 60).padStart(2, '0')}`
+                                    ) : (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes < 60 ? (
                                       // Show minutes only when less than 1 hour
-                                      `${Math.round(sessionTimers[point.pointId].remainingMinutes)} min`
+                                      `${Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes)} min`
                                     ) : (
                                       // Show hours and minutes when more than 1 hour
-                                      `${Math.floor(sessionTimers[point.pointId].remainingMinutes / 60)}h ${Math.round(sessionTimers[point.pointId].remainingMinutes % 60)}m`
+                                      `${Math.floor((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes / 60)}h ${Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes % 60)}m`
                                     )}
                                   </div>
                                   <div style={{ fontSize: "11px", color: "#8c8c8c" }}>
-                                    Ends at {sessionTimers[point.pointId].endTime}
+                                    Ends at {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.endTime}
                                   </div>
                                 </div>
                               )}
@@ -1009,10 +993,12 @@ const ChargingPointsPage = () => {
                           <Text strong>${point.pricePerKwh}/kWh</Text>
                         </div>
 
-                        {/* Session Duration Info - only show for active sessions */}
-                        {(point.status?.toLowerCase() === "in use" ||
+                        {/* Session Duration Info - show for active sessions or manually expired sessions */}
+                        {((point.status?.toLowerCase() === "in use" ||
                           point.status?.toLowerCase() === "in_use" ||
-                          point.status?.toLowerCase() === "inuse") && activeSessions[point.pointId] && (
+                          point.status?.toLowerCase() === "inuse") ||
+                          manuallyExpiredSessions[point.pointId]) &&
+                          (activeSessions[point.pointId] || manuallyExpiredSessions[point.pointId]) && (
                             <>
                               <div
                                 style={{
@@ -1025,11 +1011,11 @@ const ChargingPointsPage = () => {
                                   <ClockCircleOutlined /> Duration:
                                 </Text>
                                 <Text strong>
-                                  {activeSessions[point.pointId].duration || 'N/A'} min
+                                  {(activeSessions[point.pointId] || manuallyExpiredSessions[point.pointId])?.duration || 'N/A'} min
                                 </Text>
                               </div>
 
-                              {sessionTimers[point.pointId] && (
+                              {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress) && (
                                 <div style={{ width: "100%" }}>
                                   <div
                                     style={{
@@ -1043,25 +1029,35 @@ const ChargingPointsPage = () => {
                                       Progress:
                                     </Text>
                                     <div style={{ textAlign: "right" }}>
-                                      {sessionTimers[point.pointId].isExpired ? (
+                                      {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired ? (
                                         <div>
                                           <Tag color="red" size="small" style={{ marginBottom: "2px" }}>
                                             <WarningOutlined style={{ marginRight: "4px" }} />
                                             EXPIRED
                                           </Tag>
                                           <div style={{ fontSize: "11px", color: "#ff4d4f" }}>
-                                            Overrun: {Math.round(sessionTimers[point.pointId].overrunMinutes)}min
+                                            Overrun: {Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.overrunMinutes || 0)}min
+                                          </div>
+                                        </div>
+                                      ) : (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? (
+                                        <div>
+                                          <Tag color="orange" size="small" style={{ marginBottom: "2px" }}>
+                                            <ClockCircleOutlined style={{ marginRight: "4px" }} />
+                                            STARTING
+                                          </Tag>
+                                          <div style={{ fontSize: "11px", color: "#fa8c16" }}>
+                                            Synchronizing...
                                           </div>
                                         </div>
                                       ) : (
                                         <div>
                                           <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1890ff" }}>
-                                            {sessionTimers[point.pointId].remainingMinutes <= 5 && sessionTimers[point.pointId].remainingMinutes > 0 ? (
-                                              `${Math.floor(sessionTimers[point.pointId].remainingSeconds / 60)}:${String(sessionTimers[point.pointId].remainingSeconds % 60).padStart(2, '0')}`
-                                            ) : sessionTimers[point.pointId].remainingMinutes < 60 ? (
-                                              `${Math.round(sessionTimers[point.pointId].remainingMinutes)}min`
+                                            {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes <= 5 && (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes > 0 ? (
+                                              `${Math.floor((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingSeconds / 60)}:${String((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingSeconds % 60).padStart(2, '0')}`
+                                            ) : (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes < 60 ? (
+                                              `${Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes)}min`
                                             ) : (
-                                              `${Math.floor(sessionTimers[point.pointId].remainingMinutes / 60)}h ${Math.round(sessionTimers[point.pointId].remainingMinutes % 60)}m`
+                                              `${Math.floor((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes / 60)}h ${Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.remainingMinutes % 60)}m`
                                             )}
                                           </div>
                                           <div style={{ fontSize: "11px", color: "#666" }}>
@@ -1072,17 +1068,19 @@ const ChargingPointsPage = () => {
                                     </div>
                                   </div>
                                   <Progress
-                                    percent={Math.round(sessionTimers[point.pointId].progress)}
+                                    percent={Math.round((sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.progress || 0)}
                                     size="small"
-                                    status={sessionTimers[point.pointId].isExpired ? "exception" : "active"}
+                                    status={(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired ? "exception" :
+                                      (sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? "active" : "active"}
                                     showInfo={false}
+                                    strokeColor={(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.sessionStatus === "STARTING" ? "#fa8c16" : undefined}
                                   />
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <Text type="secondary" style={{ fontSize: "11px" }}>
-                                      End time: {sessionTimers[point.pointId].endTime}
+                                      End time: {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.endTime}
                                     </Text>
-                                    {sessionTimers[point.pointId].isExpired && (
-                                      <Tag color="red" size="small">AUTO-STOPPING</Tag>
+                                    {(sessionTimers[point.pointId] || manuallyExpiredSessions[point.pointId]?.progress)?.isExpired && (
+                                      <Tag color="red" size="small">EXPIRED - STOP REQUIRED</Tag>
                                     )}
                                   </div>
                                 </div>
@@ -1118,7 +1116,8 @@ const ChargingPointsPage = () => {
                             !(
                               point.status?.toLowerCase() === "in use" ||
                               point.status?.toLowerCase() === "in_use" ||
-                              point.status?.toLowerCase() === "inuse"
+                              point.status?.toLowerCase() === "inuse" ||
+                              manuallyExpiredSessions[point.pointId] // Enable stop for expired sessions
                             ) || actionLoading[point.pointId]
                           }
                         >
@@ -1343,6 +1342,84 @@ const ChargingPointsPage = () => {
                   disabled={paymentMethod === 'qr' && !showQrCode}
                 >
                   {paymentMethod === 'qr' && showQrCode ? 'Confirm Payment & Stop Session' : 'Process Payment & Stop Session'}
+                </Button>
+              </Space>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Duration Selection Modal */}
+        <Modal
+          title={
+            <div>
+              <ClockCircleOutlined style={{ marginRight: '8px' }} />
+              Select Session Duration
+            </div>
+          }
+          open={durationModalVisible}
+          onCancel={() => {
+            setDurationModalVisible(false);
+            setSelectedPoint(null);
+            setSelectedDuration(5); // Reset to default
+          }}
+          footer={null}
+          width={400}
+        >
+          <div style={{ padding: '20px 0' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <Text strong>Charging Point: </Text>
+              <Text>{selectedPoint?.name || 'N/A'}</Text>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <Text strong>Select Duration (minutes): </Text>
+              <Select
+                value={selectedDuration}
+                onChange={setSelectedDuration}
+                style={{ width: '100%', marginTop: '8px' }}
+                size="large"
+              >
+                <Option value={1}>1 minute</Option>
+                <Option value={5}>5 minutes (Default)</Option>
+                <Option value={10}>10 minutes</Option>
+                <Option value={15}>15 minutes</Option>
+                <Option value={30}>30 minutes</Option>
+                <Option value={60}>1 hour</Option>
+                <Option value={120}>2 hours</Option>
+                <Option value={180}>3 hours</Option>
+                <Option value={240}>4 hours</Option>
+                <Option value={480}>8 hours</Option>
+              </Select>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <Space>
+                <Button
+                  onClick={() => {
+                    setDurationModalVisible(false);
+                    setSelectedPoint(null);
+                    setSelectedDuration(5);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlayCircleOutlined />}
+                  onClick={() => {
+                    if (selectedPoint) {
+                      handleStartSessionWithDuration(selectedPoint, selectedDuration);
+                      setDurationModalVisible(false);
+                      setSelectedPoint(null);
+                      setSelectedDuration(5);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: "#52c41a",
+                    borderColor: "#52c41a",
+                  }}
+                >
+                  Start Session ({selectedDuration} min)
                 </Button>
               </Space>
             </div>
