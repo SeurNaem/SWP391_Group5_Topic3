@@ -396,13 +396,23 @@ const PaymentPage = () => {
             }
 
             // Create reservation after successful payment
-            // Duration is already in minutes, no conversion needed for demo
+            // Based on chat logs, backend expects simplified payload with just pointId
+
+            // Validate that a charging point is selected
+            if (!reservationData.selectedChargingPoint) {
+                message.error('No charging point selected. Please go back and select a charging point.');
+                setCurrentStep(0);
+                setLoading(false);
+                return;
+            }
+
             const reservationPayload = {
-                pointId: reservationData.selectedChargingPoint,
-                duration: chargingDuration // Already in minutes
+                pointId: reservationData.selectedChargingPoint
             };
 
-            let reservation = null;
+            console.log('Creating reservation with simplified payload:', reservationPayload);
+            console.log('Selected charging point ID:', reservationData.selectedChargingPoint);
+            console.log('Reservation data state:', reservationData); let reservation = null;
             try {
                 // Call the actual backend API
                 reservation = await createReservation(reservationPayload);                // Set both states together using React's batching

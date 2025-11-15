@@ -1,6 +1,6 @@
 import api from "../config/axios";
 
-const API = "/Reservation"
+const API = "Reservation"
 
 /**
  * Create a new reservation

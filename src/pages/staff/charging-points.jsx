@@ -288,6 +288,14 @@ const ChargingPointsPage = () => {
       );
 
       console.log("Step 4: Matching reservation found:", matchingReservation);
+      console.log("Step 4a: Reservation fields:", Object.keys(matchingReservation));
+      console.log("Step 4b: Checking for duration fields:", {
+        duration: matchingReservation.duration,
+        chargingDuration: matchingReservation.chargingDuration,
+        minutes: matchingReservation.minutes,
+        startTime: matchingReservation.startTime,
+        endTime: matchingReservation.endTime
+      });
 
       if (!matchingReservation) {
         console.error("ERROR: No confirmed reservation found for this charging point");
@@ -304,8 +312,24 @@ const ChargingPointsPage = () => {
         return;
       }
 
+      // Calculate duration from start/end times if duration field is missing
+      let durationMinutes = matchingReservation.duration;
+
+      if (!durationMinutes && matchingReservation.startTime && matchingReservation.endTime) {
+        const startTime = new Date(matchingReservation.startTime);
+        const endTime = new Date(matchingReservation.endTime);
+        durationMinutes = Math.round((endTime - startTime) / (1000 * 60)); // Convert ms to minutes
+        console.log("Step 4c: Calculated duration from start/end times:", durationMinutes, "minutes");
+      }
+
+      if (!durationMinutes) {
+        durationMinutes = 120; // Fallback to 120 minutes
+        console.log("Step 4d: Using fallback duration:", durationMinutes, "minutes");
+      } else {
+        console.log("Step 4e: Using duration:", durationMinutes, "minutes from reservation");
+      }
+
       // Prepare session data with all fields from reservation
-      const durationMinutes = matchingReservation.duration || 120; // Default 120 minutes (2 hours)
       const sessionData = {
         userId: matchingReservation.userId,           // Fetch from reservation
         pointId: matchingReservation.pointId,         // Fetch from reservation
@@ -323,21 +347,25 @@ const ChargingPointsPage = () => {
       console.log("Step 7: Session start response received:", response);
       console.log("Step 7a: Response structure:", JSON.stringify(response, null, 2));
 
-      // Extract sessionId from response (might be nested in data property)
-      const sessionId = response?.sessionId || response?.data?.sessionId;
+      // Extract sessionId from response (nested in session property)
+      const sessionId = response?.session?.sessionId || response?.sessionId || response?.data?.sessionId;
       console.log("Step 7b: Extracted sessionId:", sessionId);
 
       // Store the sessionId for this point with complete auto-stop data
       if (sessionId) {
         console.log("Step 7c: Storing sessionId:", sessionId, "for pointId:", point.pointId);
 
+        // Use the actual duration from sessionData.minutes instead of fallback
+        const actualDuration = sessionData.minutes;
+        console.log("Step 7d: Using actual duration from session data:", actualDuration);
+
         const sessionInfo = {
           sessionId: sessionId,
           pointId: point.pointId,
           paymentMethod: sessionData.paymentMethod,
-          duration: durationMinutes, // Duration in minutes
+          duration: actualDuration, // Use actual duration from session data
           startTime: new Date().toISOString(), // Current time as start time
-          endTime: new Date(Date.now() + (durationMinutes * 60 * 1000)).toISOString(), // Expected end time
+          endTime: new Date(Date.now() + (actualDuration * 60 * 1000)).toISOString(), // Expected end time
           vehicleType: matchingReservation.vehicleType,
           licensePlate: matchingReservation.licensePlate,
           maxPower: point.maxPower || 25, // For energy calculation
@@ -349,12 +377,12 @@ const ChargingPointsPage = () => {
           [point.pointId]: sessionInfo
         }));
 
-        console.log("Step 7d: Session stored successfully with auto-stop data:", sessionInfo);
-        console.log("Step 7e: Auto-stop scheduled for:", sessionInfo.endTime);
+        console.log("Step 7e: Session stored successfully with auto-stop data:", sessionInfo);
+        console.log("Step 7f: Auto-stop scheduled for:", sessionInfo.endTime);
 
         // Show auto-stop confirmation message
         message.success({
-          content: `Session started! Will automatically stop after ${durationMinutes} minutes`,
+          content: `Session started! Will automatically stop after ${actualDuration} minutes`,
           duration: 5,
           icon: <RobotOutlined style={{ color: '#52c41a' }} />
         });
