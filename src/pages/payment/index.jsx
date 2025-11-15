@@ -102,7 +102,7 @@ const PaymentPage = () => {
     const [currentStep, setCurrentStep] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('wallet');
     const [walletData, setWalletData] = useState(null);
-    const [chargingDuration, setChargingDuration] = useState(5); // Default 5 minutes for quick demo
+    const [chargingDuration, setChargingDuration] = useState(1); // Default 1 minute for ultra-quick demo
     const [estimatedCost, setEstimatedCost] = useState(0);
     const [reservationData, setReservationData] = useState({
         vehicleModel: '',
@@ -396,7 +396,7 @@ const PaymentPage = () => {
             }
 
             // Create reservation after successful payment
-            // Based on chat logs, backend expects simplified payload with just pointId
+            // Backend needs duration information to set correct start/end times
 
             // Validate that a charging point is selected
             if (!reservationData.selectedChargingPoint) {
@@ -406,13 +406,21 @@ const PaymentPage = () => {
                 return;
             }
 
+            // Include duration and timing information for accurate reservation
+            const startTime = new Date().toISOString(); // Current time
+            const endTime = new Date(Date.now() + (chargingDuration * 60 * 1000)).toISOString(); // Start time + duration
+
             const reservationPayload = {
-                pointId: reservationData.selectedChargingPoint
+                pointId: reservationData.selectedChargingPoint,
+                duration: chargingDuration, // Duration in minutes
+                startTime: startTime,
+                endTime: endTime
             };
 
-            console.log('Creating reservation with simplified payload:', reservationPayload);
-            console.log('Selected charging point ID:', reservationData.selectedChargingPoint);
-            console.log('Reservation data state:', reservationData); let reservation = null;
+            console.log('Creating reservation with duration payload:', reservationPayload);
+            console.log('Selected duration:', chargingDuration, 'minutes');
+            console.log('Start time:', startTime);
+            console.log('End time:', endTime); let reservation = null;
             try {
                 // Call the actual backend API
                 reservation = await createReservation(reservationPayload);                // Set both states together using React's batching
