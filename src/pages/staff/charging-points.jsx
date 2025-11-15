@@ -15,6 +15,10 @@ import {
   Progress,
   Tooltip,
   Alert,
+  Modal,
+  Select,
+  Image,
+  Divider,
 } from "antd";
 import {
   ThunderboltOutlined,
@@ -28,6 +32,10 @@ import {
   ClockCircleOutlined,
   WarningOutlined,
   RobotOutlined,
+  WalletOutlined,
+  QrcodeOutlined,
+  CreditCardOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { getStationChargingPoints, startSession, stopSession, getStationReservations, getStationActiveSessions } from "../../service/staff.api";
@@ -36,6 +44,7 @@ import { sessionManager } from "../../utils/SessionManager";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const ChargingPointsPage = () => {
   const [points, setPoints] = useState([]);
@@ -47,6 +56,16 @@ const ChargingPointsPage = () => {
   const [autoStopInProgress, setAutoStopInProgress] = useState(new Set()); // Track ongoing auto-stops
   const navigate = useNavigate();
   const { stationId } = useParams();
+
+  // Payment Modal States
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('wallet');
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [sessionData, setSessionData] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('pending');
 
   const fetchChargingPoints = useCallback(async () => {
     setLoading(true);
@@ -64,6 +83,96 @@ const ChargingPointsPage = () => {
       setLoading(false);
     }
   }, [stationId]);
+
+  // Generate VietQR code URL
+  const generateVietQR = useCallback((amount) => {
+    const bankId = 'MB';
+    const accountNo = '0123456789';
+    const template = 'compact2';
+    const addInfo = encodeURIComponent(`EV Charging Payment - ${Date.now()}`);
+
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${Math.round(amount)}&addInfo=${addInfo}`;
+
+    setQrCodeUrl(qrUrl);
+    return qrUrl;
+  }, []);
+
+  // Mock payment verification
+  const verifyQRPayment = async () => {
+    setPaymentLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const isVerified = true;
+
+      if (isVerified) {
+        setPaymentStatus('verified');
+        message.success('Payment verified successfully!');
+        return true;
+      } else {
+        setPaymentStatus('failed');
+        message.error('Payment not found. Please try again.');
+        return false;
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      setPaymentStatus('failed');
+      message.error('Failed to verify payment. Please try again.');
+      return false;
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Handle payment completion
+  const handlePaymentComplete = async () => {
+    setPaymentLoading(true);
+    try {
+      if (paymentMethod === 'qr') {
+        const isVerified = await verifyQRPayment();
+        if (!isVerified) {
+          return;
+        }
+      } else if (paymentMethod === 'wallet') {
+        // Simulate wallet payment
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        message.success('Payment deducted from wallet successfully!');
+      } else {
+        // Simulate card payment
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        message.success('Card payment processed successfully!');
+      }
+
+      // Now complete the stop session
+      console.log("Step 7: Payment completed, calling POST Staff/session/stop");
+      const response = await stopSession(sessionData);
+      console.log("Step 8: Session stop response:", JSON.stringify(response, null, 2));
+
+      // Remove from active sessions
+      const pointId = sessionData.pointId;
+      setActiveSessions((prev) => {
+        const updated = { ...prev };
+        delete updated[pointId];
+        return updated;
+      });
+
+      // Close modal and show success
+      setPaymentModalVisible(false);
+      setShowQrCode(false);
+      setPaymentStatus('pending');
+      message.success('Payment completed and session stopped successfully!');
+
+      // Refresh charging points
+      console.log("Step 9: Refreshing charging points...");
+      setTimeout(() => {
+        fetchChargingPoints();
+      }, 1000);
+    } catch (error) {
+      console.error('Payment/Stop session error:', error);
+      message.error('Failed to complete transaction. Please try again.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   // Simplified auto-stop functionality using client-side expiry detection
   // No need for backend expired-sessions endpoint - we check active sessions
@@ -512,24 +621,17 @@ const ChargingPointsPage = () => {
       };
 
       console.log("Step 6: Prepared stop session data:", JSON.stringify(stopData, null, 2));
-      console.log("Step 7: Calling POST Staff/session/stop");
 
-      const response = await stopSession(stopData);
-      console.log("Step 8: Session stop response:", JSON.stringify(response, null, 2));
+      // Calculate payment amount (mock calculation based on energy consumed)
+      // In production, this should come from the backend
+      const calculatedAmount = Math.random() * 50 + 10; // Mock: $10-$60
 
-      // Remove from active sessions
-      setActiveSessions((prev) => {
-        const updated = { ...prev };
-        delete updated[pointId];
-        return updated;
-      });
-
-      message.success("Session stopped successfully - Status changed to Available");
-
-      console.log("Step 9: Refreshing charging points...");
-      setTimeout(() => {
-        fetchChargingPoints();
-      }, 1000);
+      // Show payment modal instead of immediately stopping
+      setSessionData(stopData);
+      setPaymentAmount(calculatedAmount);
+      setPaymentMethod('wallet');
+      setPaymentModalVisible(true);
+      setActionLoading((prev) => ({ ...prev, [pointId]: null }));
     } catch (error) {
       console.error("=== ERROR IN STOP SESSION ===");
       console.error("Error object:", error);
@@ -1046,6 +1148,206 @@ const ChargingPointsPage = () => {
             })}
           </Row>
         )}
+
+        {/* Payment Modal */}
+        <Modal
+          title={
+            <div style={{ textAlign: 'center' }}>
+              <DollarOutlined style={{ fontSize: '24px', color: '#1890ff', marginRight: '8px' }} />
+              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Payment Required</span>
+            </div>
+          }
+          visible={paymentModalVisible}
+          onCancel={() => {
+            setPaymentModalVisible(false);
+            setShowQrCode(false);
+            setPaymentStatus('pending');
+            setActionLoading({});
+          }}
+          footer={null}
+          width={600}
+        >
+          <div style={{ padding: '20px 0' }}>
+            {/* Payment Amount */}
+            <Card style={{ marginBottom: '20px', backgroundColor: '#f0f5ff', border: '2px solid #1890ff' }}>
+              <div style={{ textAlign: 'center' }}>
+                <Text type="secondary" style={{ fontSize: '16px' }}>Amount to Pay</Text>
+                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1890ff', margin: '10px 0' }}>
+                  ${paymentAmount.toFixed(2)}
+                </div>
+                <Text type="secondary" style={{ fontSize: '14px' }}>
+                  ≈ {Math.round(paymentAmount * 24000).toLocaleString()} VND
+                </Text>
+              </div>
+            </Card>
+
+            <Divider>Select Payment Method</Divider>
+
+            {/* Payment Method Selection */}
+            <Select
+              value={paymentMethod}
+              onChange={(value) => {
+                setPaymentMethod(value);
+                setShowQrCode(false);
+                setPaymentStatus('pending');
+              }}
+              style={{ width: '100%', marginBottom: '20px' }}
+              size="large"
+            >
+              <Option value="wallet">
+                <WalletOutlined style={{ marginRight: '8px' }} />
+                Digital Wallet
+              </Option>
+              <Option value="qr">
+                <QrcodeOutlined style={{ marginRight: '8px' }} />
+                VietQR (Bank Transfer)
+              </Option>
+              <Option value="card">
+                <CreditCardOutlined style={{ marginRight: '8px' }} />
+                Credit/Debit Card
+              </Option>
+            </Select>
+
+            {/* Payment Method Info */}
+            {paymentMethod === 'wallet' && (
+              <Alert
+                message="Digital Wallet Payment"
+                description="Payment will be deducted from the customer's digital wallet."
+                type="info"
+                showIcon
+                icon={<WalletOutlined />}
+                style={{ marginBottom: '20px' }}
+              />
+            )}
+
+            {paymentMethod === 'qr' && (
+              <div>
+                <Alert
+                  message="VietQR Payment"
+                  description="Generate a QR code for the customer to scan and pay via banking app."
+                  type="info"
+                  showIcon
+                  icon={<QrcodeOutlined />}
+                  style={{ marginBottom: '20px' }}
+                />
+
+                {!showQrCode && (
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    icon={<QrcodeOutlined />}
+                    onClick={() => {
+                      generateVietQR(paymentAmount);
+                      setShowQrCode(true);
+                    }}
+                    style={{ marginBottom: '20px' }}
+                  >
+                    Generate QR Code
+                  </Button>
+                )}
+
+                {showQrCode && (
+                  <Card
+                    style={{
+                      marginBottom: '20px',
+                      textAlign: 'center',
+                      border: '2px solid #1890ff'
+                    }}
+                  >
+                    <Title level={4}>
+                      <QrcodeOutlined style={{ marginRight: '8px' }} />
+                      Scan to Pay
+                    </Title>
+                    <div style={{
+                      padding: '20px',
+                      backgroundColor: '#fff',
+                      display: 'inline-block',
+                      borderRadius: '8px'
+                    }}>
+                      <Image
+                        src={qrCodeUrl}
+                        alt="VietQR Payment Code"
+                        width={300}
+                        style={{
+                          border: '1px solid #d9d9d9',
+                          borderRadius: '4px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ marginTop: '16px' }}>
+                      <Text strong style={{ fontSize: '16px' }}>
+                        Amount: ${paymentAmount.toFixed(2)}
+                      </Text>
+                      <br />
+                      <Text type="secondary">
+                        Customer should scan this QR code with their banking app
+                      </Text>
+                    </div>
+
+                    {paymentStatus === 'pending' && (
+                      <Alert
+                        message="Waiting for Payment"
+                        description="Click 'Confirm Payment' after customer completes the bank transfer."
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: '16px', textAlign: 'left' }}
+                      />
+                    )}
+
+                    {paymentStatus === 'verified' && (
+                      <Alert
+                        message="Payment Verified!"
+                        description="Payment has been confirmed. Completing transaction..."
+                        type="success"
+                        showIcon
+                        style={{ marginTop: '16px', textAlign: 'left' }}
+                      />
+                    )}
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {paymentMethod === 'card' && (
+              <Alert
+                message="Credit/Debit Card Payment"
+                description="Customer will pay using their credit or debit card."
+                type="info"
+                showIcon
+                icon={<CreditCardOutlined />}
+                style={{ marginBottom: '20px' }}
+              />
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ marginTop: '24px', textAlign: 'center' }}>
+              <Space size="large">
+                <Button
+                  size="large"
+                  onClick={() => {
+                    setPaymentModalVisible(false);
+                    setShowQrCode(false);
+                    setPaymentStatus('pending');
+                    setActionLoading({});
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={paymentMethod === 'qr' && showQrCode ? <CheckCircleOutlined /> : <DollarOutlined />}
+                  onClick={handlePaymentComplete}
+                  loading={paymentLoading}
+                  disabled={paymentMethod === 'qr' && !showQrCode}
+                >
+                  {paymentMethod === 'qr' && showQrCode ? 'Confirm Payment & Stop Session' : 'Process Payment & Stop Session'}
+                </Button>
+              </Space>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
