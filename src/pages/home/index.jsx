@@ -8,6 +8,8 @@ import {
   FiShoppingCart,
   FiTarget,
   FiSearch,
+  FiMail,
+  FiPhone,
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -266,6 +268,77 @@ const EbikeHomePage = () => {
       transform: 'scale(1)',
       border: 'none'
     },
+    modelsSection: {
+      padding: '5rem 1.5rem',
+      maxWidth: '80rem',
+      margin: '0 auto',
+      backgroundColor: '#0F172A'
+    },
+    modelsTitle: {
+      fontSize: '2.5rem',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: '1rem',
+      color: '#ffffff'
+    },
+    modelsSubtitle: {
+      fontSize: '1.125rem',
+      textAlign: 'center',
+      color: '#9CA3AF',
+      marginBottom: '3rem'
+    },
+    modelsGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+      gap: '2rem'
+    },
+    modelCard: {
+      backgroundColor: '#1F2937',
+      borderRadius: '1rem',
+      overflow: 'hidden',
+      border: '1px solid #374151',
+      transition: 'all 0.3s ease',
+      cursor: 'pointer'
+    },
+    modelImageWrapper: {
+      width: '100%',
+      height: '200px',
+      overflow: 'hidden',
+      backgroundColor: '#111827'
+    },
+    modelImage: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      transition: 'transform 0.3s ease'
+    },
+    modelContent: {
+      padding: '1.5rem'
+    },
+    modelBrand: {
+      fontSize: '1rem',
+      fontWeight: '600',
+      color: themeColors.primary,
+      marginBottom: '0.25rem',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em'
+    },
+    modelName: {
+      fontSize: '1.5rem',
+      fontWeight: 'bold',
+      color: '#ffffff',
+      marginBottom: '1rem'
+    },
+    connectorBadge: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      backgroundColor: '#111827',
+      padding: '0.5rem 1rem',
+      borderRadius: '9999px',
+      fontSize: '0.875rem',
+      color: '#9CA3AF',
+      border: '1px solid #374151'
+    },
     featuresSection: {
       padding: '5rem 1.5rem',
       maxWidth: '80rem',
@@ -321,6 +394,66 @@ const EbikeHomePage = () => {
     },
     footerText: {
       color: '#9CA3AF'
+    },
+    contactSection: {
+      padding: '4rem 1.5rem',
+      backgroundColor: '#111827',
+      borderTop: '1px solid #374151'
+    },
+    contactContainer: {
+      maxWidth: '80rem',
+      margin: '0 auto'
+    },
+    contactTitle: {
+      fontSize: '2.5rem',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: '1rem',
+      color: '#ffffff'
+    },
+    contactSubtitle: {
+      fontSize: '1.125rem',
+      textAlign: 'center',
+      color: '#9CA3AF',
+      marginBottom: '3rem'
+    },
+    contactInfoGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '2rem',
+      marginTop: '2rem'
+    },
+    contactCard: {
+      backgroundColor: '#1F2937',
+      padding: '2.5rem 2rem',
+      borderRadius: '1rem',
+      textAlign: 'center',
+      border: '1px solid #374151',
+      transition: 'all 0.3s ease',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
+    },
+    contactIconWrapper: {
+      display: 'inline-flex',
+      padding: '1.25rem',
+      backgroundColor: '#111827',
+      borderRadius: '50%',
+      marginBottom: '1.5rem',
+      border: '2px solid #374151'
+    },
+    contactLabel: {
+      fontSize: '1.25rem',
+      fontWeight: '600',
+      marginBottom: '0.75rem',
+      color: '#ffffff'
+    },
+    contactValue: {
+      fontSize: '1rem',
+      color: '#ffffff',
+      textDecoration: 'none',
+      transition: 'color 0.3s ease',
+      lineHeight: '1.6'
     }
   };
 
@@ -341,6 +474,17 @@ const EbikeHomePage = () => {
           .hero-background-animated {
             background-size: 120% auto !important;
             animation: slideLeftToRight 12s ease-in-out infinite alternate;
+          }
+
+          /* Model card hover effects */
+          .model-card:hover {
+            transform: translateY(-8px);
+            border-color: #4DA0D6 !important;
+            box-shadow: 0 12px 24px rgba(77, 160, 214, 0.2);
+          }
+
+          .model-card:hover img {
+            transform: scale(1.1);
           }
         `}
       </style>
@@ -575,7 +719,76 @@ const EbikeHomePage = () => {
             </button>
           </div>
         </div>
-      </section>      {/* --- Features Section --- */}
+      </section>
+
+      {/* --- Models Section --- */}
+      <section style={styles.modelsSection} id="models">
+        <h2 style={styles.modelsTitle}>Electric Vehicle Models</h2>
+        <p style={styles.modelsSubtitle}>Compatible vehicles with our charging network</p>
+        <div style={styles.modelsGrid}>
+          {[
+            {
+              brand: "Tesla",
+              model: "Model 3",
+              connectorType: "CCS",
+              image: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=500&h=300&fit=crop"
+            },
+            {
+              brand: "Tesla",
+              model: "Model S",
+              connectorType: "CCS",
+              image: "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=500&h=300&fit=crop"
+            },
+            {
+              brand: "VinFast",
+              model: "VF 8",
+              connectorType: "CCS / Type 2",
+              image: "https://images.unsplash.com/photo-1678909265375-e7c6d65d7c21?w=500&h=300&fit=crop"
+            },
+            {
+              brand: "VinFast",
+              model: "VF 9",
+              connectorType: "CCS / Type 2",
+              image: "https://images.unsplash.com/photo-1609521263047-f8f9b2a0e6f3?w=500&h=300&fit=crop"
+            },
+            {
+              brand: "Audi",
+              model: "e-tron GT",
+              connectorType: "CCS",
+              image: "https://images.unsplash.com/photo-1614200187524-dc4b892acf16?w=500&h=300&fit=crop"
+            },
+            {
+              brand: "Audi",
+              model: "Q4 e-tron",
+              connectorType: "CCS / Type 2",
+              image: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=500&h=300&fit=crop"
+            }
+          ].map((car, index) => (
+            <div key={index} style={styles.modelCard} className="model-card">
+              <div style={styles.modelImageWrapper}>
+                <img 
+                  src={car.image} 
+                  alt={`${car.brand} ${car.model}`}
+                  style={styles.modelImage}
+                  onError={(e) => {
+                    e.target.src = evImage;
+                  }}
+                />
+              </div>
+              <div style={styles.modelContent}>
+                <h3 style={styles.modelBrand}>{car.brand}</h3>
+                <h4 style={styles.modelName}>{car.model}</h4>
+                <div style={styles.connectorBadge}>
+                  <FiZap size={16} style={{ marginRight: '0.5rem' }} />
+                  <span>{car.connectorType}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* --- Features Section --- */}
       <section style={styles.featuresSection} id="features">
         <h2 style={styles.featuresTitle}>Why WARP?</h2>
         <div style={styles.featuresGrid}>
@@ -650,6 +863,57 @@ const EbikeHomePage = () => {
           Powering the future of urban mobility.
         </p>
       </footer>
+
+      {/* --- Contact Section --- */}
+      <section style={styles.contactSection} id="contact">
+        <div style={styles.contactContainer}>
+          <h2 style={styles.contactTitle}>Contact Us</h2>
+          <p style={styles.contactSubtitle}>Get in touch with our team</p>
+          
+          <div style={styles.contactInfoGrid}>
+            <div style={styles.contactCard}>
+              <div style={styles.contactIconWrapper}>
+                <FiMail size={28} color={themeColors.primary} />
+              </div>
+              <h3 style={styles.contactLabel}>Email</h3>
+              <a 
+                href="mailto:warp.evsystem@gmail.com" 
+                style={styles.contactValue}
+                onMouseEnter={(e) => e.target.style.color = themeColors.primary}
+                onMouseLeave={(e) => e.target.style.color = '#ffffff'}
+              >
+                warp.evsystem@gmail.com
+              </a>
+            </div>
+            
+            <div style={styles.contactCard}>
+              <div style={styles.contactIconWrapper}>
+                <FiPhone size={28} color={themeColors.primary} />
+              </div>
+              <h3 style={styles.contactLabel}>Phone</h3>
+              <a 
+                href="tel:0987654321" 
+                style={styles.contactValue}
+                onMouseEnter={(e) => e.target.style.color = themeColors.primary}
+                onMouseLeave={(e) => e.target.style.color = '#ffffff'}
+              >
+                0987654321
+              </a>
+            </div>
+            
+            <div style={styles.contactCard}>
+              <div style={styles.contactIconWrapper}>
+                <FiMapPin size={28} color={themeColors.primary} />
+              </div>
+              <h3 style={styles.contactLabel}>Address</h3>
+              <p style={styles.contactValue}>
+                258 Bach Dang Street<br />
+                Da Nang, Viet Nam
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

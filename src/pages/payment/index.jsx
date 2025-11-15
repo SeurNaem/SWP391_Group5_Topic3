@@ -26,7 +26,8 @@ import {
     ThunderboltOutlined,
     ReloadOutlined,
     CarOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    QrcodeOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -104,6 +105,9 @@ const PaymentPage = () => {
     const [walletData, setWalletData] = useState(null);
     const [chargingDuration, setChargingDuration] = useState(1); // Default 1 minute for ultra-quick demo
     const [estimatedCost, setEstimatedCost] = useState(0);
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, verified, failed
+    const [showQrCode, setShowQrCode] = useState(false);
     const [reservationData, setReservationData] = useState({
         vehicleModel: '',
         licensePlate: '',
@@ -136,6 +140,53 @@ const PaymentPage = () => {
         } catch (error) {
             console.error('Error fetching wallet data:', error);
             message.error('Failed to load wallet information');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Generate VietQR code URL
+    const generateVietQR = useCallback((amount) => {
+        // VietQR API format: https://img.vietqr.io/image/{BANK_ID}-{ACCOUNT_NO}-{TEMPLATE}.png?amount={AMOUNT}&addInfo={DESCRIPTION}
+        // Example bank info (you should replace with actual merchant info)
+        const bankId = 'MB'; // MB Bank
+        const accountNo = '0123456789'; // Replace with actual account
+        const template = 'compact2'; // QR template style
+        const addInfo = encodeURIComponent(`EV Charging - ${stationData?.stationName || 'Station'} - ${Date.now()}`);
+        
+        const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${Math.round(amount)}&addInfo=${addInfo}`;
+        
+        setQrCodeUrl(qrUrl);
+        return qrUrl;
+    }, [stationData]);
+
+    // Mock payment verification - in production, this would check with backend
+    const verifyQRPayment = async () => {
+        setLoading(true);
+        try {
+            // Simulate API call to verify payment
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // In production: call backend API to check if payment was received
+            // const response = await checkPaymentStatus(transactionId);
+            
+            // Mock: randomly succeed (in production, check actual payment)
+            const isVerified = true; // In production: response.data.isPaid
+            
+            if (isVerified) {
+                setPaymentStatus('verified');
+                message.success('Payment verified successfully!');
+                return true;
+            } else {
+                setPaymentStatus('failed');
+                message.error('Payment not found. Please try again.');
+                return false;
+            }
+        } catch (error) {
+            console.error('Payment verification error:', error);
+            setPaymentStatus('failed');
+            message.error('Failed to verify payment. Please try again.');
+            return false;
         } finally {
             setLoading(false);
         }
@@ -389,6 +440,16 @@ const PaymentPage = () => {
                 } else {
                     throw new Error('Wallet deduction failed');
                 }
+            } else if (paymentMethod === 'qr') {
+                // VietQR payment flow
+                // Generate QR code and wait for user confirmation
+                generateVietQR(estimatedCost);
+                setShowQrCode(true);
+                setPaymentStatus('pending');
+                
+                // Show QR code modal - user will verify payment manually
+                message.info('Please scan the QR code to complete payment');
+                return; // Exit here, user will click "Verify Payment" button
             } else {
                 // Simulate card payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -485,6 +546,73 @@ const PaymentPage = () => {
             } else {
                 message.error('Failed to create reservation. Please try again or contact support.');
             }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handle QR payment completion after user verifies
+    const handleQRPaymentComplete = async () => {
+        setLoading(true);
+        try {
+            // Verify payment was received
+            const isVerified = await verifyQRPayment();
+            
+            if (!isVerified) {
+                return;
+            }
+
+            // Create reservation after successful payment verification
+            const startTime = new Date().toISOString();
+            const endTime = new Date(Date.now() + (chargingDuration * 60 * 1000)).toISOString();
+
+            const reservationPayload = {
+                pointId: reservationData.selectedChargingPoint,
+                duration: chargingDuration,
+                startTime: startTime,
+                endTime: endTime
+            };
+
+            let reservation = null;
+            try {
+                reservation = await createReservation(reservationPayload);
+                React.startTransition(() => {
+                    setCreatedReservation(reservation);
+                    setCurrentStep(3);
+                    setShowQrCode(false);
+                });
+                message.success('Payment completed! Your charging session has been reserved.');
+            } catch (error) {
+                if (error.response?.status === 400) {
+                    message.error('Invalid reservation data. Please check your selection and try again.');
+                } else if (error.response?.status === 401) {
+                    message.error('Authentication required. Please log in and try again.');
+                } else if (error.response?.status === 404) {
+                    message.error('Charging point not found. Please select a different charging point.');
+                } else if (error.response?.status === 409) {
+                    message.error('Charging point is already reserved. Please select a different time or point.');
+                } else {
+                    message.error(`Reservation failed: ${error.response?.data || error.message}`);
+                }
+
+                reservation = {
+                    reservationId: 'FAILED-' + Date.now(),
+                    status: 'failed',
+                    pointId: reservationPayload.pointId,
+                    error: error.response?.data || error.message,
+                    paymentStatus: 'completed',
+                    note: 'Payment was successful but reservation creation failed.'
+                };
+
+                React.startTransition(() => {
+                    setCreatedReservation(reservation);
+                    setCurrentStep(3);
+                    setShowQrCode(false);
+                });
+            }
+        } catch (error) {
+            console.error('QR Payment completion error:', error);
+            message.error('Failed to complete reservation. Please contact support.');
         } finally {
             setLoading(false);
         }
@@ -822,6 +950,10 @@ const PaymentPage = () => {
                                                 <WalletOutlined style={{ marginRight: '8px' }} />
                                                 Digital Wallet
                                             </Option>
+                                            <Option value="qr">
+                                                <QrcodeOutlined style={{ marginRight: '8px' }} />
+                                                VietQR (Bank Transfer)
+                                            </Option>
                                             <Option value="card">
                                                 <CreditCardOutlined style={{ marginRight: '8px' }} />
                                                 Credit/Debit Card
@@ -879,6 +1011,116 @@ const PaymentPage = () => {
                                             )}
                                         </div>
                                     )}
+
+                                    {paymentMethod === 'qr' && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <Alert
+                                                message="VietQR Payment"
+                                                description={
+                                                    <div>
+                                                        <div style={{ marginBottom: '8px' }}>
+                                                            <Text strong>Payment Amount: </Text>
+                                                            <Text style={{ fontSize: '18px', fontWeight: 'bold', color: '#1890ff' }}>
+                                                                ${estimatedCost.toFixed(2)}
+                                                            </Text>
+                                                            <Text style={{ marginLeft: '8px', color: '#666' }}>
+                                                                (≈ {Math.round(estimatedCost * 24000).toLocaleString()} VND)
+                                                            </Text>
+                                                        </div>
+                                                        <div>
+                                                            <Text>Click the button below to generate a QR code for bank transfer payment.</Text>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                type="info"
+                                                showIcon
+                                                icon={<QrcodeOutlined />}
+                                            />
+
+                                            {showQrCode && (
+                                                <Card
+                                                    style={{
+                                                        marginTop: '16px',
+                                                        textAlign: 'center',
+                                                        border: '2px solid #1890ff'
+                                                    }}
+                                                >
+                                                    <Title level={4}>
+                                                        <QrcodeOutlined style={{ marginRight: '8px' }} />
+                                                        Scan QR Code to Pay
+                                                    </Title>
+                                                    <div style={{
+                                                        padding: '20px',
+                                                        backgroundColor: '#fff',
+                                                        display: 'inline-block',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                                    }}>
+                                                        <img
+                                                            src={qrCodeUrl}
+                                                            alt="VietQR Payment Code"
+                                                            style={{
+                                                                width: '300px',
+                                                                height: '300px',
+                                                                border: '1px solid #d9d9d9',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div style={{ marginTop: '16px' }}>
+                                                        <Text strong style={{ fontSize: '16px' }}>
+                                                            Amount: ${estimatedCost.toFixed(2)}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary">
+                                                            Use your banking app to scan this QR code
+                                                        </Text>
+                                                    </div>
+                                                    
+                                                    {paymentStatus === 'pending' && (
+                                                        <Alert
+                                                            message="Waiting for Payment"
+                                                            description="After completing the bank transfer, click 'Verify Payment' to confirm."
+                                                            type="warning"
+                                                            showIcon
+                                                            style={{ marginTop: '16px' }}
+                                                        />
+                                                    )}
+                                                    
+                                                    {paymentStatus === 'verified' && (
+                                                        <Alert
+                                                            message="Payment Verified!"
+                                                            description="Your payment has been confirmed. Processing reservation..."
+                                                            type="success"
+                                                            showIcon
+                                                            style={{ marginTop: '16px' }}
+                                                        />
+                                                    )}
+                                                    
+                                                    <div style={{ marginTop: '16px' }}>
+                                                        <Space>
+                                                            <Button
+                                                                onClick={() => {
+                                                                    setShowQrCode(false);
+                                                                    setPaymentStatus('pending');
+                                                                }}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                            <Button
+                                                                type="primary"
+                                                                loading={loading}
+                                                                onClick={handleQRPaymentComplete}
+                                                                disabled={paymentStatus === 'verified'}
+                                                            >
+                                                                Verify Payment & Reserve
+                                                            </Button>
+                                                        </Space>
+                                                    </div>
+                                                </Card>
+                                            )}
+                                        </div>
+                                    )}
                                 </Form>
 
                                 <div style={{ textAlign: 'center' }}>
@@ -894,13 +1136,19 @@ const PaymentPage = () => {
                                             disabled={
                                                 (paymentMethod === 'wallet' && walletData && walletData.balance < estimatedCost) ||
                                                 !reservationData.selectedChargingPoint ||
-                                                estimatedCost <= 0
+                                                estimatedCost <= 0 ||
+                                                (paymentMethod === 'qr' && showQrCode)
                                             }
                                         >
-                                            {estimatedCost > 0 ?
-                                                `Pay $${estimatedCost.toFixed(2)} & Reserve` :
+                                            {paymentMethod === 'qr' && !showQrCode ? (
+                                                'Generate QR Code'
+                                            ) : paymentMethod === 'qr' && showQrCode ? (
+                                                'QR Code Generated'
+                                            ) : estimatedCost > 0 ? (
+                                                `Pay $${estimatedCost.toFixed(2)} & Reserve`
+                                            ) : (
                                                 'Select charging point to continue'
-                                            }
+                                            )}
                                         </Button>
                                     </Space>
                                 </div>

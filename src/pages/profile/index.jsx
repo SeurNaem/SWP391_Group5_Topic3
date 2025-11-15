@@ -1114,28 +1114,51 @@ const ProfilePage = () => {
                                 )}
                             </div>
 
-                            <div>
-                                <Button type="default" onClick={() => setTopUpAmount(50)} style={{ marginRight: 8 }}>50</Button>
-                                <Button type="default" onClick={() => setTopUpAmount(100)} style={{ marginRight: 8 }}>100</Button>
-                                <Button type="default" onClick={() => setTopUpAmount(200)}>200</Button>
-                            </div>
-
-                            <div>
-                                <Button type="primary" onClick={generateFakeQr} loading={isGeneratingQr}>
-                                    Generate Bank QR
-                                </Button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <Button type="default" onClick={() => setTopUpAmount(50)} style={{ marginRight: 8 }}>50</Button>
+                                    <Button type="default" onClick={() => setTopUpAmount(100)} style={{ marginRight: 8 }}>100</Button>
+                                    <Button type="default" onClick={() => setTopUpAmount(200)}>200</Button>
+                                </div>
+                                <div>
+                                    <Button type="primary" onClick={generateFakeQr} loading={isGeneratingQr}>
+                                        Generate Bank QR
+                                    </Button>
+                                </div>
                             </div>
 
                             {qrData && (
-                                <div style={{ textAlign: 'center', marginTop: 12 }}>
+                                <div style={{ textAlign: 'center', marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     {qrData.qrDataURL ? (
-                                        <div>
-                                            <img src={qrData.qrDataURL} alt="VietQR" style={{ width: 220, height: 220, background: '#fff', padding: 8 }} />
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'center', 
+                                            alignItems: 'center',
+                                            marginBottom: 20
+                                        }}>
+                                            <img 
+                                                src={qrData.qrDataURL} 
+                                                alt="VietQR" 
+                                                style={{ 
+                                                    width: 350, 
+                                                    height: 350, 
+                                                    background: '#fff', 
+                                                    padding: 16,
+                                                    borderRadius: 8,
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                                }} 
+                                            />
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'inline-block', padding: 12, border: '4px solid #000', background: '#fff' }}>
+                                        <div style={{ 
+                                            display: 'inline-block', 
+                                            padding: 16, 
+                                            border: '4px solid #000', 
+                                            background: '#fff',
+                                            marginBottom: 20
+                                        }}>
                                             {/* Simple visual placeholder for QR */}
-                                            <div style={{ width: 180, height: 180, display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
+                                            <div style={{ width: 300, height: 300, display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 2 }}>
                                                 {Array.from({ length: 81 }).map((_, i) => (
                                                     <div key={i} style={{ backgroundColor: Math.random() > 0.5 ? '#000' : '#fff' }} />
                                                 ))}
@@ -1143,8 +1166,8 @@ const ProfilePage = () => {
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: 12 }}>
-                                        <Button type="primary" onClick={confirmTopUp} loading={isConfirmingTopUp}>
+                                    <div style={{ marginTop: 8 }}>
+                                        <Button type="primary" onClick={confirmTopUp} loading={isConfirmingTopUp} size="large">
                                             Confirm Top Up
                                         </Button>
                                     </div>
