@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Spin, Typography, message, Row, Col, InputNumber, Button, Statistic, Tag, Space } from 'antd';
+import { Card, Table, Spin, Typography, message, Row, Col, InputNumber, Button, Statistic, Tag, Space, Progress } from 'antd';
 import { getUserSessions } from '../../service/user.api';
 import { getSessionById } from '../../service/staff.api';
 import { useSelector } from 'react-redux';
@@ -62,6 +62,14 @@ const ChargingHistoryPage = () => {
 
   useEffect(() => {
     loadSessions();
+  }, []);
+
+  // Real-time monitoring: auto-refresh sessions every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadSessions();
+    }, 10000); // 10 seconds
+    return () => clearInterval(interval);
   }, []);
 
   // Fallback scanning is expensive — run only when user clicks the button
@@ -224,6 +232,26 @@ const ChargingHistoryPage = () => {
     },
   ];
 
+  // Helper to check if a session is active
+  const isSessionActive = (session) => {
+    return !session.endTime || (session.status && String(session.status).toLowerCase().includes('active'));
+  };
+
+  // Find the current (active) session
+  const currentSession = sessions.find(isSessionActive);
+
+  // Helper to calculate progress (if estimated duration is available)
+  const getSessionProgress = (session) => {
+    if (!session || !session.startTime) return 0;
+    const start = dayjs(session.startTime);
+    const now = dayjs();
+    // Try to estimate duration: if session.raw.minutes exists, use it
+    const estMinutes = session.raw?.minutes || session.raw?.estimatedMinutes || 0;
+    if (!estMinutes) return 0;
+    const elapsed = now.diff(start, 'minute');
+    return Math.min(100, Math.round((elapsed / estMinutes) * 100));
+  };
+
   return (
     <div style={{ padding: 24, background: 'linear-gradient(180deg,#6b5bff 0%, #7b64d6 100%)', minHeight: '100vh' }}>
       {contextHolder}
@@ -237,7 +265,40 @@ const ChargingHistoryPage = () => {
           <div style={{ width: 120 }} />
         </div>
 
-
+        {/* Current Session Card */}
+        {currentSession && (
+          <Card style={{ marginBottom: 24, border: '2px solid #52c41a', background: '#f6ffed' }}>
+            <Row gutter={16} align="middle">
+              <Col span={16}>
+                <Title level={4} style={{ marginBottom: 0, color: '#52c41a' }}>Current Charging Session</Title>
+                <div><Text strong>Session ID:</Text> <Text code>{currentSession.id}</Text></div>
+                <div><Text strong>Station:</Text> {currentSession.station}</div>
+                <div><Text strong>Point:</Text> {currentSession.point}</div>
+                <div><Text strong>Start Time:</Text> {currentSession.startTime ? dayjs(currentSession.startTime).format('DD/MM/YYYY HH:mm:ss') : 'N/A'}</div>
+                <div><Text strong>Status:</Text> <Tag color="processing">Active</Tag></div>
+                <div style={{ marginTop: 8 }}>
+                  <Text strong>Energy:</Text> {currentSession.energy} kWh
+                  <span style={{ marginLeft: 16 }}><Text strong>Cost:</Text> ${Number(currentSession.cost).toFixed(2)}</span>
+                </div>
+              </Col>
+              <Col span={8} style={{ textAlign: 'center' }}>
+                <Progress
+                  type="circle"
+                  percent={getSessionProgress(currentSession)}
+                  status="active"
+                  strokeColor="#52c41a"
+                  format={p => `${p}%`}
+                  width={90}
+                />
+                <div style={{ marginTop: 8 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {currentSession.raw?.minutes ? `Estimated: ${currentSession.raw.minutes} min` : 'Live'}
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+          </Card>
+        )}
 
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={8}>
@@ -274,10 +335,23 @@ const ChargingHistoryPage = () => {
               rowKey="key"
               locale={{ emptyText: 'No charging sessions found.' }}
               size="middle"
+              rowClassName={(record) => isSessionActive(record) ? 'active-session-row' : ''}
             />
           )}
         </Card>
       </div>
+      {/* Add a style for active session row */}
+      <style>{`
+        .active-session-row {
+          background: #e6f7ff !important;
+          animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 #1890ff44; }
+          70% { box-shadow: 0 0 0 10px #1890ff00; }
+          100% { box-shadow: 0 0 0 0 #1890ff00; }
+        }
+      `}</style>
     </div>
   );
 };

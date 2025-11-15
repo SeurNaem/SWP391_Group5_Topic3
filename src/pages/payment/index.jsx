@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSelector } from 'react-redux';
+
 import {
     Card,
     Row,
@@ -25,7 +25,8 @@ import {
     ReloadOutlined,
     CarOutlined,
     QrcodeOutlined,
-    ArrowLeftOutlined
+    ArrowLeftOutlined,
+    ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -33,6 +34,7 @@ import dayjs from 'dayjs';
 import { createReservation } from '../../service/reservation.api';
 import { getUserProfile } from '../../service/user.api';
 import { getVehicleByDriverId } from '../../service/vehicle-sim.api';
+import { startChargingSession, stopChargingSession } from '../../service/charging-session.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -91,8 +93,20 @@ const PaymentPage = () => {
     const location = useLocation();
     const [form] = Form.useForm();
 
-    // Get user account from Redux store
-    const account = useSelector(state => state.account);
+    // Store user profile locally
+    const [userProfile, setUserProfile] = useState(null);
+    // Fetch user profile on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const profile = await getUserProfile();
+                setUserProfile(profile);
+            } catch (err) {
+                setUserProfile(null);
+            }
+        };
+        fetchProfile();
+    }, []);
 
     // Get station data from navigation state
     const stationData = location.state?.station;
@@ -100,6 +114,8 @@ const PaymentPage = () => {
     const [loading, setLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [estimatedCost, setEstimatedCost] = useState(0);
+    const [selectedDuration, setSelectedDuration] = useState(60); // Default 1 hour (60 minutes)
+    const [paymentMethod, setPaymentMethod] = useState('e-wallet'); // Default payment method
 
 
 
@@ -124,25 +140,35 @@ const PaymentPage = () => {
     }, [stationData?.chargingPoints]);
     const [createdReservation, setCreatedReservation] = useState(null);
 
+    // Calculate estimated cost based on duration and charging point
+    const calculateEstimatedCost = useCallback((durationMinutes, chargingPointId) => {
+        if (!durationMinutes || !chargingPointId) return 0;
+
+        const selectedPoint = availableChargingPoints.find(point => point.id === chargingPointId);
+        if (!selectedPoint) return 0;
+
+        // Calculate estimated energy consumption
+        // Assuming average consumption rate (simplified calculation)
+        const durationHours = durationMinutes / 60;
+        const estimatedPowerKw = selectedPoint.maxPower || 25; // Default to 25kW if not specified
+        const estimatedEnergyKwh = estimatedPowerKw * durationHours * 0.8; // 80% efficiency factor
+
+        // Calculate cost based on price per kWh
+        const pricePerKwh = selectedPoint.pricePerKwh || 0.25; // Default price if not specified
+        const totalCost = estimatedEnergyKwh * pricePerKwh;
+
+        return Math.round(totalCost * 100) / 100; // Round to 2 decimal places
+    }, [availableChargingPoints]);
+
     const fetchUserVehicleInfo = useCallback(async () => {
         try {
             // Get user profile for basic info (license plate, etc.)
             const userProfile = await getUserProfile();
-
-            // Debug: Check what we have for user ID
-            console.log('Account from Redux:', account);
-            console.log('User Profile:', userProfile);
-
             // Get vehicle details from VehicleSim API using driverId from user profile
             if (userProfile?.driverId) {
-                console.log('Attempting to fetch vehicle data for driverId:', userProfile.driverId);
-
                 // Use driverId from user profile
                 const driverId = String(userProfile.driverId);
                 const vehicleInfo = await getVehicleByDriverId(driverId);
-
-                console.log('Vehicle info response:', vehicleInfo);
-
                 if (vehicleInfo) {
                     // Set vehicle data from VehicleSim API response
                     const vehicleData = {
@@ -151,25 +177,18 @@ const PaymentPage = () => {
                         currentBatteryPercent: vehicleInfo.currentBatteryPercent,
                         batteryCapacityKwh: vehicleInfo.batteryCapacityKwh
                     };
-
                     setVehicleData(vehicleData);
-
                     setReservationData(prev => ({
                         ...prev,
                         vehicleModel: vehicleInfo.model || '',
                         licensePlate: userProfile?.licensePlate || ''
                     }));
                 }
-            } else {
-                console.warn('No driverId found in user profile');
             }
         } catch (error) {
-            console.error('Error fetching vehicle info:', error);
-            console.error('Error details:', error.response?.data || error.message);
             // Don't show error message as vehicle info is optional
-            // User can still manually select if needed
         }
-    }, [account]);
+    }, []);
 
     // Check connector compatibility when charging point is selected
     const checkConnectorCompatibility = useCallback((chargingPointId) => {
@@ -236,6 +255,14 @@ const PaymentPage = () => {
         }
     }, [reservationData.selectedChargingPoint, calculateCost]);
 
+    // Update estimated cost when duration or charging point changes
+    useEffect(() => {
+        if (selectedDuration && reservationData.selectedChargingPoint) {
+            const newCost = calculateEstimatedCost(selectedDuration, reservationData.selectedChargingPoint);
+            setEstimatedCost(newCost);
+        }
+    }, [selectedDuration, reservationData.selectedChargingPoint, calculateEstimatedCost]);
+
     const handleChargingPointChange = (pointId) => {
         setReservationData(prev => ({ ...prev, selectedChargingPoint: pointId }));
         // Check connector compatibility
@@ -270,7 +297,7 @@ const PaymentPage = () => {
             // Set both states together using React's batching
             React.startTransition(() => {
                 setCreatedReservation(reservation);
-                setCurrentStep(1);
+                setCurrentStep(2); // Skip to final confirmation since reservation is already created
             });
 
             message.success('Reservation created successfully!');
@@ -316,6 +343,147 @@ const PaymentPage = () => {
         return selectedPoint.status === 'available';
     };
 
+    // Navigation functions for steps
+    const handleNextStep = () => {
+        if (currentStep === 0) {
+            // Validate reservation details before proceeding
+            if (!validateSelectedChargingPoint()) {
+                message.error('Please select a valid charging point');
+                return;
+            }
+            if (connectorCompatibilityError) {
+                message.error('Please fix connector compatibility issues before proceeding');
+                return;
+            }
+            setCurrentStep(1); // Go to Duration Selection
+        } else if (currentStep === 1) {
+            // Validate duration selection
+            if (!selectedDuration || selectedDuration < 1) {
+                message.error('Please select a valid duration');
+                return;
+            }
+            setCurrentStep(2); // Go to Confirmation
+        }
+    };
+
+    const handlePreviousStep = () => {
+        if (currentStep > 0) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
+
+    // Handle starting charging session  
+    const handleStartChargingSession = async () => {
+        console.log('Start Charging Session button clicked!');
+
+
+
+        if (!createdReservation || !selectedDuration || !paymentMethod) {
+            console.log('Validation failed - missing data');
+            message.error('Missing reservation or session details');
+            return;
+        }
+
+        if (!userProfile || !userProfile.driverId) {
+            console.log('Validation failed - user not authenticated');
+            message.error('User not authenticated. Please log in again.');
+            setLoading(false);
+            return;
+        }
+
+        console.log('Validation passed, starting session...');
+        setLoading(true);
+        try {
+            // Use driverId from user profile
+            const userId = userProfile.driverId;
+
+            // Prepare session start data using the same format as staff
+            const sessionData = {
+                userId: userId,
+                pointId: reservationData.selectedChargingPoint,
+                reservationId: createdReservation.reservationId,
+                vehicleId: vehicleData?.vehicleId || 0, // Use vehicleId if available, otherwise 0
+                minutes: selectedDuration,
+                paymentMethod: paymentMethod
+            };
+
+            console.log('Starting charging session with data:', sessionData);
+
+
+            // Start the charging session using the driver API
+            const sessionResponse = await startChargingSession(sessionData);
+            console.log('Session start response:', sessionResponse);
+
+            if (sessionResponse?.sessionId) {
+                console.log('Session started successfully! Session ID:', sessionResponse.sessionId);
+                message.success(`Charging session started! Session ID: ${sessionResponse.sessionId}`);
+
+                // Update the reservation data to include session info
+                setCreatedReservation(prev => ({
+                    ...prev,
+                    sessionId: sessionResponse.sessionId,
+                    sessionStarted: true,
+                    startTime: sessionResponse.startTime,
+                    endTime: sessionResponse.endTime
+                }));
+            } else {
+                console.log('Session response received but no session ID:', sessionResponse);
+                message.warning('Session started but no session ID returned');
+            }
+
+        } catch (error) {
+            console.error('Error starting charging session:', error);
+
+            if (error.response?.status === 400) {
+                message.error('Invalid session data. Please try again.');
+            } else if (error.response?.status === 401) {
+                message.error('Authentication failed. Please log in again.');
+            } else if (error.response?.status === 404) {
+                message.error('Reservation or charging point not found.');
+            } else if (error.response?.status === 409) {
+                message.error('Charging point is already in use. Please try again later.');
+            } else {
+                message.error(`Failed to start charging session: ${error.response?.data || error.message}`);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Add this function below handleStartChargingSession
+    const handleStopChargingSession = async () => {
+        if (!createdReservation?.sessionId) {
+            message.error('No active session to stop.');
+            return;
+        }
+        setLoading(true);
+        try {
+            // You may want to get the actual end time and energy consumed from the backend or meter
+            const stopData = {
+                sessionId: createdReservation.sessionId,
+                endTime: new Date().toISOString(),
+                energyConsumed: 0, // Replace with actual value if available
+                paymentMethod: paymentMethod,
+                createInvoice: true
+            };
+            console.log('Stopping charging session with data:', stopData);
+            const stopResponse = await stopChargingSession(stopData);
+            console.log('Session stop response:', stopResponse);
+            message.success('Charging session stopped successfully!');
+            setCreatedReservation(prev => ({
+                ...prev,
+                sessionStopped: true,
+                stopTime: stopResponse.endTime || stopData.endTime,
+                invoiceId: stopResponse.invoiceId || null
+            }));
+        } catch (error) {
+            console.error('Error stopping charging session:', error);
+            message.error('Failed to stop charging session.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!stationData) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -331,6 +499,10 @@ const PaymentPage = () => {
         {
             title: 'Reservation Details',
             icon: <CarOutlined />
+        },
+        {
+            title: 'Select Duration',
+            icon: <ClockCircleOutlined />
         },
         {
             title: 'Confirmation',
@@ -511,17 +683,131 @@ const PaymentPage = () => {
                                     <Button
                                         type="primary"
                                         size="large"
-                                        loading={loading}
-                                        onClick={handleCreateReservation}
+                                        onClick={handleNextStep}
                                         disabled={!reservationData.vehicleModel || !reservationData.selectedChargingPoint || connectorCompatibilityError}
                                     >
-                                        Create Reservation
+                                        Next: Select Duration
                                     </Button>
                                 </div>
                             </Form>
                         )}
 
+                        {/* Duration Selection Step */}
                         {currentStep === 1 && (
+                            <div>
+                                <Alert
+                                    message="Select Charging Duration"
+                                    description="Choose how long you want to charge your vehicle. You can stop the session early if needed."
+                                    type="info"
+                                    showIcon
+                                    style={{ marginBottom: '24px' }}
+                                />
+
+                                <Form layout="vertical">
+                                    <Row gutter={[16, 16]}>
+                                        <Col span={24}>
+                                            <Form.Item label="Charging Duration" required>
+                                                <Select
+                                                    size="large"
+                                                    value={selectedDuration}
+                                                    onChange={setSelectedDuration}
+                                                    placeholder="Select charging duration"
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    {/* Quick options */}
+                                                    <Option value={30}>30 minutes</Option>
+                                                    <Option value={60}>1 hour (recommended)</Option>
+                                                    <Option value={90}>1.5 hours</Option>
+                                                    <Option value={120}>2 hours</Option>
+                                                    <Option value={180}>3 hours</Option>
+                                                    <Option value={240}>4 hours</Option>
+                                                    <Option value={360}>6 hours</Option>
+                                                    <Option value={480}>8 hours</Option>
+
+                                                    {/* Custom options */}
+                                                    <Divider style={{ margin: '4px 0' }} />
+                                                    {[...Array(59)].map((_, i) => {
+                                                        const minutes = i + 1;
+                                                        if (![30, 60, 90, 120, 180, 240, 360, 480].includes(minutes)) {
+                                                            return (
+                                                                <Option key={minutes} value={minutes}>
+                                                                    {minutes} minute{minutes > 1 ? 's' : ''}
+                                                                </Option>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })}
+
+                                                    {/* Additional hour options */}
+                                                    {[5, 6, 7].map(hours => (
+                                                        <Option key={hours * 60} value={hours * 60}>
+                                                            {hours} hour{hours > 1 ? 's' : ''}
+                                                        </Option>
+                                                    ))}
+                                                </Select>
+                                            </Form.Item>
+                                        </Col>
+
+                                        <Col span={24}>
+                                            <Form.Item label="Payment Method" required>
+                                                <Select
+                                                    size="large"
+                                                    value={paymentMethod}
+                                                    onChange={setPaymentMethod}
+                                                    placeholder="Select payment method"
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    <Option value="e-wallet">
+                                                        <WalletOutlined /> E-Wallet
+                                                    </Option>
+                                                    <Option value="banking">
+                                                        <CreditCardOutlined /> Banking/Credit Card
+                                                    </Option>
+                                                </Select>
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+
+                                    <div style={{
+                                        marginTop: '24px',
+                                        padding: '16px',
+                                        backgroundColor: '#f6ffed',
+                                        border: '1px solid #b7eb8f',
+                                        borderRadius: '8px'
+                                    }}>
+                                        <Text strong style={{ color: '#52c41a' }}>
+                                            <DollarOutlined /> Estimated Cost: ${estimatedCost.toFixed(2)}
+                                        </Text>
+                                        <br />
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            Based on {selectedDuration} minutes at selected charging point
+                                        </Text>
+                                    </div>
+
+                                    <Divider />
+
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Space>
+                                            <Button size="large" onClick={handlePreviousStep}>
+                                                Back
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                size="large"
+                                                loading={loading}
+                                                onClick={handleCreateReservation}
+                                                disabled={!selectedDuration || selectedDuration < 1}
+                                            >
+                                                Create Reservation & Proceed
+                                            </Button>
+                                        </Space>
+                                    </div>
+                                </Form>
+                            </div>
+                        )}
+
+                        {/* Confirmation Step */}
+                        {currentStep === 2 && (
                             <div style={{
                                 textAlign: 'center',
                                 backgroundColor: '#f0fff0', // Light green background
@@ -595,55 +881,140 @@ const PaymentPage = () => {
 
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Duration: </Text>
-                                        <Text>Will be set by staff when starting the session</Text>
+                                        <Text>{selectedDuration} minutes ({Math.floor(selectedDuration / 60)}h {selectedDuration % 60}m)</Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Payment Method: </Text>
+                                        <Text style={{ textTransform: 'capitalize' }}>{paymentMethod.replace('-', ' ')}</Text>
+                                    </div>
+
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <Text strong>Estimated Cost: </Text>
+                                        <Text style={{ color: '#52c41a', fontWeight: 'bold' }}>${estimatedCost.toFixed(2)}</Text>
                                     </div>
 
                                     <Divider />
 
                                     <div style={{ marginBottom: '12px' }}>
                                         <Text strong>Status: </Text>
-                                        <Text style={{ color: '#52c41a', fontWeight: 'bold' }}>
-                                            Reservation Created (Payment managed by staff)
+                                        <Text style={{
+                                            color: createdReservation?.sessionStarted ? '#52c41a' : '#1890ff',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {createdReservation?.sessionStarted
+                                                ? `Charging Session Active (ID: ${createdReservation.sessionId})`
+                                                : 'Reservation Created - Ready to Start Charging'}
                                         </Text>
                                     </div>
                                 </Card>
 
                                 <Alert
-                                    message="Important Reminders"
+                                    message={createdReservation?.sessionStarted ? "Charging Session Started!" : "Ready to Start Charging"}
                                     description={
-                                        <ul style={{ textAlign: 'left', margin: 0, paddingLeft: '20px' }}>
-                                            <li>Bring your vehicle identification and charging cable if required</li>
-                                            <li>Late arrival may result in reservation cancellation</li>
-                                            <li>You can view and manage your reservations in the app</li>
-                                        </ul>
+                                        createdReservation?.sessionStarted ? (
+                                            <ul style={{ textAlign: 'left', margin: 0, paddingLeft: '20px' }}>
+                                                <li>Your charging session is now active</li>
+                                                <li>Monitor your charging progress through the app</li>
+                                                <li>You can stop the session early if needed</li>
+                                                <li>Payment will be processed when the session ends</li>
+                                            </ul>
+                                        ) : (
+                                            <ul style={{ textAlign: 'left', margin: 0, paddingLeft: '20px' }}>
+                                                <li>Your reservation is confirmed and ready</li>
+                                                <li>Click "Start Charging Session" to begin charging</li>
+                                                <li>Bring your vehicle identification and charging cable if required</li>
+                                                <li>You can view and manage your sessions in the app</li>
+                                            </ul>
+                                        )
                                     }
-                                    type="warning"
+                                    type={createdReservation?.sessionStarted ? "success" : "info"}
                                     showIcon
                                     style={{ marginTop: '24px' }}
                                 />
 
-                                {/* Manual navigation buttons */}
+                                {/* Action buttons */}
                                 <div style={{ marginTop: '32px', textAlign: 'center' }}>
-                                    <Space>
-                                        <Button
-                                            type="default"
-                                            onClick={() => navigate('/map')}
-                                        >
-                                            Back to Map
-                                        </Button>
-                                        <Button
-                                            type="primary"
-                                            onClick={() => navigate('/map', {
-                                                state: {
-                                                    reservationSuccess: true,
-                                                    reservedStation: stationData,
-                                                    reservation: createdReservation
-                                                }
-                                            })}
-                                        >
-                                            View on Map
-                                        </Button>
-                                    </Space>
+                                    {!createdReservation?.sessionStarted ? (
+                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                            {/* Debug information */}
+                                            <div style={{
+                                                background: '#f0f0f0',
+                                                padding: '12px',
+                                                borderRadius: '4px',
+                                                fontSize: '12px'
+                                            }}>
+                                                <strong>Debug Info:</strong><br />
+                                                <span style={{ color: !userProfile?.driverId ? 'red' : 'green' }}>
+                                                    Driver ID: {userProfile?.driverId || '❌ Not set - User needs to login!'}
+                                                </span><br />
+                                                Selected Duration: {selectedDuration || 'Not set'}<br />
+                                                Payment Method: {paymentMethod || 'Not set'}<br />
+                                                Created Reservation: {createdReservation ? '✅ Yes' : '❌ No'}<br />
+                                                Session Started: {createdReservation?.sessionStarted ? '✅ Yes' : '❌ No'}<br />
+                                                Loading: {loading ? 'Yes' : 'No'}
+                                            </div>
+
+                                            {/* Test button for debugging */}
+                                            <Button
+                                                type="default"
+                                                size="small"
+                                                onClick={() => {
+                                                    console.log('Test button clicked - calling handleStartChargingSession');
+                                                    handleStartChargingSession();
+                                                }}
+                                            >
+                                                Test Start Session (Debug)
+                                            </Button>
+
+                                            {/* Login redirect if needed */}
+                                            {!userProfile?.driverId && (
+                                                <Button
+                                                    type="default"
+                                                    danger
+                                                    onClick={() => navigate('/login')}
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    ⚠️ Go to Login (Account Required)
+                                                </Button>
+                                            )}
+
+                                            <Button
+                                                type="primary"
+                                                size="large"
+                                                loading={loading}
+                                                onClick={(e) => {
+                                                    console.log('Primary button clicked! Event:', e);
+                                                    console.log('Calling handleStartChargingSession...');
+                                                    handleStartChargingSession();
+                                                }}
+                                                icon={<ThunderboltOutlined />}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '48px',
+                                                    backgroundColor: '#52c41a',
+                                                    borderColor: '#52c41a'
+                                                }}
+                                            >
+                                                Start Charging Session
+                                            </Button>
+                                        </Space>
+                                    ) : (
+                                        <Space>
+                                            <Button
+                                                type="default"
+                                                onClick={() => navigate('/map')}
+                                            >
+                                                Back to Map
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                onClick={() => navigate('/charging-history')}
+                                            >
+                                                View Charging Sessions
+                                            </Button>
+                                        </Space>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -692,6 +1063,33 @@ const PaymentPage = () => {
                             </div>
 
                             <Divider />
+
+                            {/* Show duration and cost if selected */}
+                            {currentStep >= 1 && selectedDuration && (
+                                <>
+                                    <div>
+                                        <Text strong>Duration:</Text>
+                                        <br />
+                                        <Text>{selectedDuration} minutes ({Math.floor(selectedDuration / 60)}h {selectedDuration % 60}m)</Text>
+                                    </div>
+
+                                    <div>
+                                        <Text strong>Payment Method:</Text>
+                                        <br />
+                                        <Text style={{ textTransform: 'capitalize' }}>{paymentMethod.replace('-', ' ')}</Text>
+                                    </div>
+
+                                    <div>
+                                        <Text strong>Estimated Cost:</Text>
+                                        <br />
+                                        <Text style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
+                                            <DollarOutlined /> ${estimatedCost.toFixed(2)}
+                                        </Text>
+                                    </div>
+
+                                    <Divider />
+                                </>
+                            )}
 
                             {/* Show reservation details if available */}
                             {reservationData.vehicleModel && (
