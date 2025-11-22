@@ -1,22 +1,16 @@
 // jsx
 // phối hợp JS & HTML 1 cách dễ dàng
 
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import Dashboard from "./components/dashboard";
-import ManageBike from "./pages/bike";
-import ManageCategory from "./pages/category";
 import { ToastContainer } from "react-toastify";
 import LoginPage from "./pages/login";
 import RegisterPage from "./pages/register";
 import EbikeHomePage from "./pages/home";
 import ProtectedRoute from "./components/protected-route";
-import ManageVoucher from "./pages/voucher";
-import ManageStore from "./pages/store";
-import ServicePage from "./pages/service";
 import MapPage from "./pages/map";
 import PaymentPage from "./pages/payment";
-<<<<<<< Updated upstream
-=======
+import ChargingHistoryPage from "./pages/charging-history";
 import ManageSubscription from "./pages/subscription";
 import ManageChargingStation from "./pages/charging-station";
 import ManageUser from "./pages/user";
@@ -25,9 +19,10 @@ import StaffPage from "./pages/staff";
 import ChargingPointsPage from "./pages/staff/charging-points";
 import SessionHistoryPage from "./pages/staff/session-history";
 import SessionDetailPage from "./pages/staff/session-detail";
+import ProfilePage from "./pages/profile";
 import { useSelector } from "react-redux";
 
-// Component to handle admin redirect on home page
+// Component to handle role-based redirect on home page
 function HomePage() {
   const account = useSelector((state) => state.account);
 
@@ -43,7 +38,6 @@ function HomePage() {
 
   return <EbikeHomePage />;
 }
->>>>>>> Stashed changes
 
 // 1. Component
 // là 1 cái function
@@ -54,34 +48,30 @@ function App() {
     {
       path: "/dashboard",
       element: (
-        <ProtectedRoute role={"ADMIN"}>
+        <ProtectedRoute role={"Admin"}>
           <Dashboard />
         </ProtectedRoute>
       ),
       children: [
         {
-          path: "bike",
-          element: <ManageBike />, // Outlet
+          index: true,
+          element: <Navigate to="/dashboard/reports" replace />,
         },
         {
-          path: "category",
-          element: <ManageCategory />, // Outlet
+          path: "reports",
+          element: <Reports />, // Outlet
         },
         {
-          path: "voucher",
-          element: <ManageVoucher />, // Outlet
+          path: "subscription",
+          element: <ManageSubscription />, // Outlet
         },
         {
-          path: "store",
-          element: <ManageStore />, // Outlet
+          path: "charging-station",
+          element: <ManageChargingStation />, // Outlet
         },
         {
-          path: "service",
-          element: <ServicePage />, // Outlet
-        },
-        {
-          path: "map",
-          element: <MapPage />, // Outlet
+          path: "user",
+          element: <ManageUser />, // Outlet
         },
       ],
     },
@@ -119,7 +109,7 @@ function App() {
     },
     {
       path: "/",
-      element: <EbikeHomePage />,
+      element: <HomePage />,
     },
     {
       path: "/login",
@@ -137,12 +127,28 @@ function App() {
       path: "/payment",
       element: <PaymentPage />,
     },
+    {
+      path: "/profile",
+      element: (
+        <ProtectedRoute>
+          <ProfilePage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/charging-history",
+      element: (
+        <ProtectedRoute>
+          <ChargingHistoryPage />
+        </ProtectedRoute>
+      ),
+    },
   ]);
 
   return (
     <>
       <ToastContainer />
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
     </>
   );
 }

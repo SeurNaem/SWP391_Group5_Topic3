@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Space, Typography, message } from 'antd';
-import { EnvironmentOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Tag, Badge } from 'antd';
+import { EnvironmentOutlined, ReloadOutlined, HomeOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import MapComponent from '../../components/map';
 import ChargingStationList from '../../components/chargingstation-list';
@@ -9,13 +9,29 @@ import { fetchStations } from '../../redux/slices/stationSlice';
 
 const { Title, Text } = Typography;
 
+// Utility function to calculate distance between two coordinates (Haversine formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+};
+
 const MapPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [selectedStation, setSelectedStation] = useState(null);
+    const [stationDetails, setStationDetails] = useState(null);
     const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Ho Chi Minh City
     const [mapZoom, setMapZoom] = useState(13);
+    const [userLocation, setUserLocation] = useState(null);
 
     const dispatch = useDispatch();
     const { stations: chargingStations } = useSelector(state => state.stations || { stations: [] });
@@ -23,6 +39,20 @@ const MapPage = () => {
     useEffect(() => {
         dispatch(fetchStations());
     }, [dispatch]);
+
+    // Pre-fetch detailed data for all stations to get real-time connector status
+    // Note: Disabled admin API calls due to 403 authentication errors
+    const preloadStationDetails = async () => {
+        console.log('Skipping admin API calls due to authentication restrictions');
+        console.log('Using data from ChargingStation endpoint instead');
+        // The ChargingStation endpoint already includes charging points data
+        // No additional API calls needed
+    };    // Pre-load station details when stations are loaded
+    useEffect(() => {
+        if (chargingStations.length > 0) {
+            preloadStationDetails(chargingStations);
+        }
+    }, [chargingStations]);
 
     // Note: Station filtering is now handled by ChargingStationList component
 
@@ -34,11 +64,51 @@ const MapPage = () => {
     };
 
     // Handle station selection
-    const handleStationSelect = (station) => {
+    const handleStationSelect = async (station) => {
         setSelectedStation(station);
         setMapCenter([station.lat, station.lng]);
         setMapZoom(16);
+
+        // Use the charging points data that's already available from the ChargingStation endpoint
+        console.log('Station selected:', station);
+        console.log('Available charging points:', station.chargingPoints);
+
+        // Set station details from the existing data (no admin API call needed)
+        setStationDetails({
+            ...station,
+            chargingPoints: station.chargingPoints || []
+        });
+    };    // Use the stations directly from Redux (they already include charging points data)
+    // Handle user location updates (without auto-centering the map)
+    const handleUserLocationUpdate = (location) => {
+        setUserLocation(location);
+        // Don't show location success message or auto-center map
     };
+
+    // Enhance stations with distance information
+    const enhancedStations = chargingStations.map(station => {
+        let enhancedStation = { ...station };
+
+        // Add distance if user location is available
+        if (userLocation) {
+            const distance = calculateDistance(
+                userLocation[0], userLocation[1],
+                station.lat, station.lng
+            );
+            enhancedStation.distance = distance;
+            enhancedStation.distanceText = distance < 1
+                ? `${(distance * 1000).toFixed(0)}m`
+                : `${distance.toFixed(1)}km`;
+        }
+
+        return enhancedStation;
+    }).sort((a, b) => {
+        // Sort by distance if available, otherwise by name
+        if (a.distance && b.distance) {
+            return a.distance - b.distance;
+        }
+        return (a.title || '').localeCompare(b.title || '');
+    });
 
     // Refresh stations
     const refreshStations = async () => {
@@ -52,9 +122,7 @@ const MapPage = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    // Get directions to station
+    };    // Get directions to station
     const getDirections = (station) => {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
         window.open(url, '_blank');
@@ -63,13 +131,36 @@ const MapPage = () => {
     const getStatusColor = (status) => {
         switch (status.toLowerCase()) {
             case 'available':
-                return '#52c41a';
+                return '#52c41a'; // Green
             case 'occupied':
-                return '#faad14';
+            case 'busy':
+            case 'in use':
+                return '#1890ff'; // Blue
             case 'maintenance':
-                return '#ff4d4f';
+            case 'offline':
+                return '#ff4d4f'; // Red
+            case 'reserved':
+                return '#fa8c16'; // Orange
             default:
                 return '#d9d9d9';
+        }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status.toLowerCase()) {
+            case 'available':
+                return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+            case 'occupied':
+            case 'busy':
+            case 'in use':
+                return <ThunderboltOutlined style={{ color: '#1890ff' }} />;
+            case 'maintenance':
+            case 'offline':
+                return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+            case 'reserved':
+                return <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />;
+            default:
+                return <CloseCircleOutlined style={{ color: '#d9d9d9' }} />;
         }
     };
 
@@ -110,8 +201,6 @@ const MapPage = () => {
                     </Card>
                 </Col>
 
-
-
                 {/* Map */}
                 <Col xs={24} lg={16}>
                     <Card title="Interactive Map" style={{ height: '600px' }}>
@@ -119,9 +208,10 @@ const MapPage = () => {
                             center={mapCenter}
                             zoom={mapZoom}
                             height="520px"
-                            markers={chargingStations}
+                            markers={enhancedStations}
                             onMapClick={handleMapClick}
                             showCurrentLocation={true}
+                            onLocationFound={handleUserLocationUpdate}
                         />
                     </Card>
                 </Col>
@@ -129,7 +219,7 @@ const MapPage = () => {
                 {/* Charging Station List with Distance Sorting */}
                 <Col xs={24} lg={8}>
                     <ChargingStationList
-                        stations={chargingStations}
+                        stations={enhancedStations}
                         onStationSelect={handleStationSelect}
                         selectedStation={selectedStation}
                         searchText={searchText}
@@ -140,7 +230,7 @@ const MapPage = () => {
                 {/* Selected Station Details */}
                 {selectedStation && (
                     <Col span={24}>
-                        <Card title="Station Details">
+                        <Card title="Station Details" loading={loading}>
                             <Row gutter={[24, 16]}>
                                 <Col xs={24} md={12}>
                                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -183,11 +273,147 @@ const MapPage = () => {
                                         <div>
                                             <Text strong>Connector Types:</Text>
                                             <br />
-                                            <Text>{selectedStation.chargerTypes.join(', ')}</Text>
+                                            <Text>{selectedStation.chargerTypes?.join(', ')}</Text>
                                         </div>
                                     </Space>
                                 </Col>
                             </Row>
+
+                            {/* Charging Points Section */}
+                            {stationDetails?.chargingPoints && stationDetails.chargingPoints.length > 0 && (
+                                <>
+                                    <Row style={{ marginTop: '24px' }}>
+                                        <Col span={24}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text strong style={{ fontSize: '16px' }}>Available Charging Points:</Text>
+                                                <div style={{ fontSize: '12px' }}>
+                                                    <Tag color="green" size="small">Available</Tag>
+                                                    <Tag color="orange" size="small">Reserved</Tag>
+                                                    <Tag color="blue" size="small">In Use</Tag>
+                                                    <Tag color="red" size="small">Offline</Tag>
+                                                </div>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
+                                        {stationDetails.chargingPoints.map((point, index) => (
+                                            <Col xs={24} sm={12} md={8} lg={6} key={point.pointId || index}>
+                                                <Card
+                                                    size="small"
+                                                    style={{
+                                                        borderColor: getStatusColor(point.status),
+                                                        borderWidth: '2px'
+                                                    }}
+                                                >
+                                                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Text strong>{point.name || `Point ${index + 1}`}</Text>
+                                                            <Badge
+                                                                status={point.status === 'available' ? 'success' :
+                                                                    point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'processing' :
+                                                                        point.status === 'reserved' ? 'warning' :
+                                                                            'error'}
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <Text type="secondary">Type:</Text>
+                                                            <br />
+                                                            <Tag
+                                                                color={
+                                                                    point.status === 'available' ? 'green' :
+                                                                        point.status === 'reserved' ? 'orange' :
+                                                                            point.status === 'offline' || point.status === 'maintenance' ? 'red' :
+                                                                                point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'blue' :
+                                                                                    'default'
+                                                                }
+                                                            >
+                                                                {point.connectorType || point.type || 'Unknown'}
+                                                            </Tag>
+                                                        </div>                                                        <div>
+                                                            <Text type="secondary">Power:</Text>
+                                                            <br />
+                                                            <Text>{point.maxPower ? `${point.maxPower}kW` : point.powerOutput || point.power || 'N/A'}</Text>
+                                                        </div>
+
+                                                        <div>
+                                                            <Text type="secondary">Price:</Text>
+                                                            <br />
+                                                            <Text>{point.pricePerKwh ? `$${point.pricePerKwh.toFixed(2)}/kWh` : 'N/A'}</Text>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <div>
+                                                                <Text type="secondary">Status:</Text>
+                                                                <br />
+                                                                <Tag
+                                                                    color={
+                                                                        point.status === 'available' ? 'green' :
+                                                                            point.status === 'occupied' || point.status === 'busy' || point.status === 'in use' ? 'blue' :
+                                                                                point.status === 'reserved' ? 'orange' :
+                                                                                    'red'
+                                                                    }
+                                                                    icon={getStatusIcon(point.status)}
+                                                                >
+                                                                    {point.status === 'occupied' || point.status === 'busy' ? 'In Use' :
+                                                                        point.status || 'Unknown'}
+                                                                </Tag>
+                                                            </div>
+                                                        </div>
+
+                                                        {point.estimatedWaitTime && point.status !== 'available' && (
+                                                            <div>
+                                                                <Text type="secondary">Est. Wait:</Text>
+                                                                <br />
+                                                                <Text style={{ color: '#faad14' }}>{point.estimatedWaitTime}</Text>
+                                                            </div>
+                                                        )}
+                                                    </Space>
+                                                </Card>
+                                            </Col>
+                                        ))}
+                                    </Row>
+
+                                    {/* Summary Stats */}
+                                    <Row style={{ marginTop: '16px' }}>
+                                        <Col span={24}>
+                                            <Card size="small" style={{ backgroundColor: '#fafafa' }}>
+                                                <Row gutter={16} style={{ textAlign: 'center' }}>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#52c41a' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'available').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Available</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#fa8c16' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'reserved').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Reserved</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#1890ff' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'occupied' || p.status === 'busy' || p.status === 'in use').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>In Use</Text>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Text strong style={{ color: '#ff4d4f' }}>
+                                                            {stationDetails.chargingPoints.filter(p => p.status === 'offline' || p.status === 'maintenance').length}
+                                                        </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: '12px' }}>Offline</Text>
+                                                    </Col>
+                                                </Row>
+                                            </Card>
+                                        </Col>
+                                    </Row>
+                                </>
+                            )}
+
                             <div style={{ marginTop: '24px' }}>
                                 <Space>
                                     <Button
@@ -202,12 +428,21 @@ const MapPage = () => {
                                         style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
                                         onClick={() => {
                                             // Navigate to payment page with station data
-                                            navigate('/payment', { state: { station: selectedStation } });
+                                            navigate('/payment', {
+                                                state: {
+                                                    station: selectedStation,
+                                                    stationDetails: stationDetails
+                                                }
+                                            });
                                         }}
+                                        disabled={!stationDetails?.chargingPoints?.some(p => p.status === 'available')}
                                     >
                                         Reserve Station
                                     </Button>
-                                    <Button onClick={() => setSelectedStation(null)}>
+                                    <Button onClick={() => {
+                                        setSelectedStation(null);
+                                        setStationDetails(null);
+                                    }}>
                                         Close Details
                                     </Button>
                                 </Space>

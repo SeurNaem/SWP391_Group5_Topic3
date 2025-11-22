@@ -1,5 +1,4 @@
 import api from "../config/axios";
-
 /**
  * Get assigned stations for the logged-in staff
  * @returns {Promise} Promise object represents the assigned stations data
@@ -13,7 +12,6 @@ export const getAssignedStations = async () => {
     throw error;
   }
 };
-
 /**
  * Get station details by ID
  * @param {number} stationId - The ID of the station
@@ -28,7 +26,6 @@ export const getStationById = async (stationId) => {
     throw error;
   }
 };
-
 /**
  * Get all charging points for a specific station
  * @param {number} stationId - The ID of the station
@@ -43,7 +40,6 @@ export const getStationChargingPoints = async (stationId) => {
     throw error;
   }
 };
-
 /**
  * Get session details by session ID
  * @param {number} sessionId - The ID of the session
@@ -122,12 +118,19 @@ export const getReservationById = async (reservationId) => {
 
 /**
  * Start a charging session
- * @param {object} sessionData - The session data (userId, pointId, reservationId, vehicleId, paymentMethod)
+ * @param {object} sessionData - The session data
+ * @param {number} sessionData.userId - User ID
+ * @param {number} sessionData.pointId - Charging point ID  
+ * @param {number} sessionData.reservationId - Reservation ID
+ * @param {number} sessionData.vehicleId - Vehicle ID (optional, can be 0)
+ * @param {number} sessionData.minutes - Duration in minutes for auto-stop
+ * @param {string} sessionData.paymentMethod - Payment method
  * @returns {Promise} Promise object represents the started session data
  */
 export const startSession = async (sessionData) => {
   try {
     console.log("API: Calling POST Staff/session/start with data:", sessionData);
+    console.log("API: Session will auto-stop after", sessionData.minutes, "minutes");
     const response = await api.post("Staff/session/start", sessionData);
     console.log("API: Session start successful, response:", response);
     return response.data;

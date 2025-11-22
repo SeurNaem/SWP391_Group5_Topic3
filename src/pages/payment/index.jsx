@@ -538,6 +538,7 @@ const PaymentPage = () => {
                 navigate('/map');
             }, 2000);
 
+            message.success('Reservation created successfully!');
         } catch (error) {
             console.error('Payment/Stop error:', error);
 
@@ -577,6 +578,28 @@ const PaymentPage = () => {
         } finally {
             setPaymentLoading(false);
         }
+    };
+
+    const validateSelectedChargingPoint = () => {
+        if (!reservationData.selectedChargingPoint) return false;
+
+        const selectedPoint = availableChargingPoints.find(
+            point => point.id === reservationData.selectedChargingPoint
+        );
+
+        if (!selectedPoint) return false;
+
+        if (selectedPoint.status === 'reserved') {
+            message.error('The selected charging point is currently reserved. Please select another charging point.');
+            return false;
+        }
+
+        if (selectedPoint.status === 'offline' || selectedPoint.status === 'maintenance') {
+            message.error('The selected charging point is offline for maintenance. Please select another charging point.');
+            return false;
+        }
+
+        return selectedPoint.status === 'available';
     };
 
     if (!stationData) {

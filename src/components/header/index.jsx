@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     UserOutlined,
     LogoutOutlined,
@@ -21,7 +21,7 @@ import {
     Menu,
     theme
 } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../redux/accountSlice';
 import logo from '../../assets/logo.png';
@@ -34,6 +34,7 @@ const Header = () => {
     const dispatch = useDispatch();
     const user = useSelector(state => state.account);
     const navigate = useNavigate();
+    const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const {
         token: { colorBgContainer },
@@ -61,38 +62,6 @@ const Header = () => {
         console.log('Search:', value);
         // Implement search functionality here
     };
-
-    // Dropdown menu items for logged-in user
-    const userMenuItems = [
-        {
-            key: 'profile',
-            icon: <UserOutlined />,
-            label: 'My Profile',
-            onClick: () => {
-                // Navigate to profile page
-                console.log('Navigate to profile');
-            }
-        },
-        {
-            key: 'settings',
-            icon: <SettingOutlined />,
-            label: 'Settings',
-            onClick: () => {
-                // Navigate to settings page
-                console.log('Navigate to settings');
-            }
-        },
-        {
-            type: 'divider',
-        },
-        {
-            key: 'logout',
-            icon: <LogoutOutlined />,
-            label: 'Logout',
-            onClick: handleLogout,
-            danger: true,
-        },
-    ];
 
     // Notification dropdown items
     const notificationItems = [
@@ -160,17 +129,16 @@ const Header = () => {
                     </Dropdown>
 
                     {/* User Profile Dropdown */}
-                    <Dropdown
-                        menu={{ items: userMenuItems }}
-                        placement="bottomRight"
-                        trigger={['hover', 'click']}
-                    >
-                        <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: '6px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Space
+                            style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: '6px' }}
+                            onClick={() => setDropdownOpen(!dropdownOpen)}
+                        >
                             <Avatar
                                 size="small"
                                 icon={<UserOutlined />}
                                 style={{ backgroundColor: '#4da0d6' }}
-                                src={user.avatar} // If user has avatar image
+                                src={user.avatar}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                 <Text strong style={{ fontSize: '14px', lineHeight: '16px' }}>
@@ -181,7 +149,84 @@ const Header = () => {
                                 </Text>
                             </div>
                         </Space>
-                    </Dropdown>
+
+                        {dropdownOpen && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                backgroundColor: 'white',
+                                border: '1px solid #d9d9d9',
+                                borderRadius: '8px',
+                                boxShadow: '0 6px 16px 0 rgba(0, 0, 0, 0.08)',
+                                zIndex: 1050,
+                                minWidth: '160px',
+                                padding: '4px 0',
+                                marginTop: '4px'
+                            }}>
+                                <div
+                                    style={{
+                                        padding: '5px 12px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '14px'
+                                    }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setDropdownOpen(false);
+                                        navigate('/profile');
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                >
+                                    <UserOutlined />
+                                    My Profile
+                                </div>
+                                <div
+                                    style={{
+                                        padding: '5px 12px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '14px'
+                                    }}
+                                    onClick={() => {
+                                        setDropdownOpen(false);
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                >
+                                    <SettingOutlined />
+                                    Settings
+                                </div>
+                                <div style={{ height: '1px', backgroundColor: '#f0f0f0', margin: '4px 0' }} />
+                                <div
+                                    style={{
+                                        padding: '5px 12px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '14px',
+                                        color: '#ff4d4f'
+                                    }}
+                                    onClick={() => {
+                                        setDropdownOpen(false);
+                                        handleLogout();
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#fff2f0'}
+                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                >
+                                    <LogoutOutlined />
+                                    Logout
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </Space>
             );
         } else {

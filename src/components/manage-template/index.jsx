@@ -1,11 +1,11 @@
 import { Button, Form, Input, Modal, Popconfirm, Table } from "antd";
 import { useForm } from "antd/es/form/Form";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { toast } from "react-toastify";
 import api from "../../config/axios";
 import dayjs from "dayjs";
 
-const ManageTemplate = ({ columns, apiURL, formItems }) => {
+const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category", idField = "id" }) => {
   // định nghĩa cái dữ liệu
   // => api
   // 1. tên biến
@@ -14,7 +14,7 @@ const ManageTemplate = ({ columns, apiURL, formItems }) => {
   const [open, setOpen] = useState(false);
   const [form] = useForm();
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     // gọi tới api và lấy dữ liệu categories
     console.log("fetching data from API...");
 
@@ -23,10 +23,10 @@ const ManageTemplate = ({ columns, apiURL, formItems }) => {
 
     console.log(response.data);
     setCategories(response.data);
-  };
+  }, [apiURL]);
 
   const handleSubmitForm = async (values) => {
-    const { id } = values;
+    const id = values[idField];
     let response;
 
     if (id) {
@@ -48,20 +48,22 @@ const ManageTemplate = ({ columns, apiURL, formItems }) => {
   useEffect(() => {
     // làm gì khi load trang lên
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   return (
     <>
-      <Button type="primary" onClick={() => setOpen(true)}>
-        Add category
-      </Button>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="primary" onClick={() => setOpen(true)}>
+          {buttonText}
+        </Button>
+      </div>
       <Table
         columns={[
           ...columns,
           {
             title: "Action",
-            dataIndex: "id",
-            key: "id",
+            dataIndex: idField,
+            key: idField,
             render: (id, record) => {
               // record: {name, description}
               return (

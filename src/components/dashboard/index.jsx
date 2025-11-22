@@ -1,16 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  DesktopOutlined,
-  FileOutlined,
   PieChartOutlined,
-  TeamOutlined,
-  UserOutlined,
-  LogoutOutlined, // Added for dropdown menu
 } from "@ant-design/icons";
-import { Breadcrumb, Layout, Menu, theme, Avatar, Dropdown, Space } from "antd";
-import { Link, Outlet, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux"; // Import useSelector to get data from Redux
+import { Breadcrumb, Layout, Menu, theme } from "antd";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../redux/accountSlice";
+import { FiUser, FiLogOut, FiShoppingCart } from "react-icons/fi";
+import { themeColors } from "../../utils/theme";
+import blankAvatar from "../../assets/blank.png";
+import { createPortal } from "react-dom";
 
 const { Header, Content, Footer, Sider } = Layout;
 
@@ -24,15 +23,15 @@ function getItem(label, key, icon, children) {
 }
 
 const items = [
-  getItem("Manage Bike", "bike", <PieChartOutlined />),
-  getItem("Manage Category", "category", <PieChartOutlined />),
-  getItem("Manage Voucher", "voucher", <PieChartOutlined />),
-  getItem("Manage Store", "store", <PieChartOutlined />),
-  getItem("Manage Service", "service", <PieChartOutlined />),
+  getItem("Reports Dashboard", "reports", <PieChartOutlined />),
+  getItem("Manage Subscription", "subscription", <PieChartOutlined />),
+  getItem("Manage Charging Station", "charging-station", <PieChartOutlined />),
+  getItem("Manage User", "user", <PieChartOutlined />),
 ];
 
 const Dashboard = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -41,30 +40,102 @@ const Dashboard = () => {
   const account = useSelector((state) => state.account);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Define items for the dropdown menu
-  const itemsDropdown = [
-    {
-      key: "1",
-      label: <Link to="/profile">Profile</Link>, // Example link
-      icon: <UserOutlined />,
+  // Get current selected key based on pathname
+  const getCurrentSelectedKey = () => {
+    const pathname = location.pathname;
+    if (pathname.includes('/reports')) return 'reports';
+    if (pathname.includes('/subscription')) return 'subscription';
+    if (pathname.includes('/charging-station')) return 'charging-station';
+    if (pathname.includes('/user')) return 'user';
+    return 'reports'; // default to reports
+  };
+
+  const user = {
+    name: account?.user?.fullName || account?.fullName || "Admin User",
+    avatar: blankAvatar,
+  };
+
+  // Handle clicks outside dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close dropdown if clicking outside of it
+      if (isDropdownOpen && !event.target.closest('.user-dropdown-container')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isDropdownOpen]);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate("/");
+  };
+
+  // Toggle dropdown when avatar is clicked
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  // Styles matching home page
+  const profileStyles = {
+    userInfo: {
+      position: 'relative',
+      cursor: 'pointer'
     },
-    {
-      key: "2",
-      label: (
-        <button
-          onClick={() => {
-            dispatch(logout());
-            navigate("/");
-          }}
-        >
-          Logout
-        </button>
-      ), // Example link
-      icon: <LogoutOutlined />,
-      danger: true, // Mark as a dangerous action
+    userAvatar: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      cursor: 'pointer'
     },
-  ];
+    avatar: {
+      width: '2.5rem',
+      height: '2.5rem',
+      borderRadius: '50%',
+      border: `2px solid ${themeColors.primary}`,
+      objectFit: 'cover'
+    },
+    dropdown: {
+      position: 'absolute',
+      top: 'calc(100% + 0.5rem)',
+      right: '0',
+      minWidth: '200px',
+      maxWidth: '200px',
+      backgroundColor: '#1F2937',
+      borderRadius: '8px',
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)',
+      border: '1px solid #374151',
+      padding: '8px 0',
+      zIndex: 9999,
+      display: 'block'
+    },
+    dropdownItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '8px 16px',
+      fontSize: '14px',
+      color: '#ffffff',
+      textDecoration: 'none',
+      transition: 'all 0.2s ease',
+      cursor: 'pointer',
+      border: 'none',
+      background: 'transparent',
+      width: '100%',
+      textAlign: 'left',
+      fontFamily: 'inherit'
+    },
+    separator: {
+      height: '1px',
+      backgroundColor: '#374151',
+      margin: '8px 0'
+    }
+  };
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -72,44 +143,160 @@ const Dashboard = () => {
         collapsible
         collapsed={collapsed}
         onCollapse={(value) => setCollapsed(value)}
+        width={250}
+        collapsedWidth={80}
       >
         <div className="demo-logo-vertical" />
         <Menu
           theme="dark"
-          defaultSelectedKeys={["1"]}
+          selectedKeys={[getCurrentSelectedKey()]}
           mode="inline"
           items={items}
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: "0 24px", background: colorBgContainer }}>
-          {/* Header Content: User Info Dropdown */}
+        <Header style={{ padding: "0 24px", background: colorBgContainer, position: 'relative' }}>
+          {/* Header Content: WARP Logo and User Info */}
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
               alignItems: "center",
               height: "100%",
+              position: 'relative'
             }}
           >
-            <Dropdown menu={{ items: itemsDropdown }} trigger={["click"]}>
-              <a onClick={(e) => e.preventDefault()}>
-                <Space>
-                  <Avatar icon={<UserOutlined />} />
-                  {/* Use optional chaining and nullish coalescing for safety */}
-                  <span>{account?.user?.name ?? "Guest"}</span>
-                </Space>
-              </a>
-            </Dropdown>
+            {/* WARP Logo Button */}
+            <div
+              onClick={() => navigate("/dashboard")}
+              style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                letterSpacing: '0.2em',
+                cursor: 'pointer',
+                color: themeColors.primary,
+                transition: 'all 0.3s ease',
+                userSelect: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'scale(1.05)';
+                e.target.style.color = '#0066cc';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'scale(1)';
+                e.target.style.color = themeColors.primary;
+              }}
+            >
+              WARP
+            </div>
+
+            {/* User Profile Section */}
+            <div
+              className="user-dropdown-container"
+              style={{
+                ...profileStyles.userInfo,
+                position: 'relative',
+                zIndex: 999
+              }}
+            >
+              <div
+                style={profileStyles.userAvatar}
+                onClick={toggleDropdown}
+              >
+                <span style={{ fontWeight: '600', color: '#1F2937' }}>
+                  {account?.user?.fullName || account?.fullName || "Admin User"}
+                </span>
+                <img
+                  src={user.avatar}
+                  alt="User Avatar"
+                  style={profileStyles.avatar}
+                />
+              </div>
+
+              {isDropdownOpen && createPortal(
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: '60px',
+                    right: '24px',
+                    width: '200px',
+                    backgroundColor: '#1F2937',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)',
+                    border: '1px solid #374151',
+                    zIndex: 10000,
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = themeColors.primary;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    My Profile
+                  </div>
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = themeColors.primary;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    Dashboard Stats
+                  </div>
+                  <div style={{
+                    height: '1px',
+                    backgroundColor: '#374151',
+                    margin: '8px 16px'
+                  }}></div>
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      color: '#F87171',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={handleLogout}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#DC2626';
+                      e.target.style.color = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.color = '#F87171';
+                    }}
+                  >
+                    Logout
+                  </div>
+                </div>,
+                document.body
+              )}
+            </div>
           </div>
         </Header>
         <Content style={{ margin: "0 16px" }}>
-          <Breadcrumb
-            style={{ margin: "16px 0" }}
-            items={[{ title: "User" }, { title: "Bill" }]}
-          />
           <div
             style={{
+              margin: "16px 0",
               padding: 24,
               minHeight: 360,
               background: colorBgContainer,
@@ -119,9 +306,6 @@ const Dashboard = () => {
             <Outlet />
           </div>
         </Content>
-        <Footer style={{ textAlign: "center" }}>
-          Ant Design ©{new Date().getFullYear()} Created by Ant UED
-        </Footer>
       </Layout>
     </Layout>
   );
