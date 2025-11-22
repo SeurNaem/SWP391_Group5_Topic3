@@ -14,7 +14,10 @@ import {
     Input,
     Select,
     message,
-    Spin
+    Spin,
+    InputNumber,
+    Modal,
+    Radio
 } from 'antd';
 import {
     CreditCardOutlined,
@@ -25,14 +28,23 @@ import {
     ReloadOutlined,
     CarOutlined,
     QrcodeOutlined,
-    ArrowLeftOutlined
+    ArrowLeftOutlined,
+    PlayCircleOutlined,
+    StopOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
+import duration from 'dayjs/plugin/duration';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(duration);
+dayjs.extend(relativeTime);
 
 import { createReservation } from '../../service/reservation.api';
 import { getUserProfile } from '../../service/user.api';
 import { getVehicleByDriverId } from '../../service/vehicle-sim.api';
+import { startChargingSession, stopChargingSession } from '../../service/charging-session.api';
+import { deductFromWallet, fetchWallets } from '../../service/wallet.api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -100,6 +112,17 @@ const PaymentPage = () => {
     const [loading, setLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [estimatedCost, setEstimatedCost] = useState(0);
+    const [activeSession, setActiveSession] = useState(null);
+    const [sessionLoading, setSessionLoading] = useState(false);
+    const [sessionDuration, setSessionDuration] = useState(30);
+    const [timeRemaining, setTimeRemaining] = useState(null);
+    const [sessionExpired, setSessionExpired] = useState(false);
+    const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState('wallet');
+    const [paymentLoading, setPaymentLoading] = useState(false);
+    const [sessionCost, setSessionCost] = useState(0);
+    const [stoppedSession, setStoppedSession] = useState(null);
+    const [userWallet, setUserWallet] = useState(null);
 
 
 
@@ -132,6 +155,19 @@ const PaymentPage = () => {
             // Debug: Check what we have for user ID
             console.log('Account from Redux:', account);
             console.log('User Profile:', userProfile);
+
+            // Fetch wallet info
+            try {
+                const walletResp = await fetchWallets();
+                const userId = account?.user?.userId;
+                const foundWallet = Array.isArray(walletResp.data) 
+                    ? walletResp.data.find(w => w.userId === userId) || walletResp.data[0]
+                    : walletResp.data;
+                setUserWallet(foundWallet);
+                console.log('User wallet loaded:', foundWallet);
+            } catch (walletErr) {
+                console.warn('Failed to load wallet:', walletErr);
+            }
 
             // Get vehicle details from VehicleSim API using driverId from user profile
             if (userProfile?.driverId) {
@@ -236,6 +272,39 @@ const PaymentPage = () => {
         }
     }, [reservationData.selectedChargingPoint, calculateCost]);
 
+    // Effect to update remaining time for active session
+    useEffect(() => {
+        if (!activeSession?.endTime) {
+            setTimeRemaining(null);
+            setSessionExpired(false);
+            return;
+        }
+
+        const updateTimer = () => {
+            const now = dayjs();
+            const end = dayjs(activeSession.endTime);
+            const diff = end.diff(now);
+
+            if (diff <= 0) {
+                setTimeRemaining('Session expired');
+                setSessionExpired(true);
+                message.warning('Your charging session has ended.');
+                return;
+            }
+
+            const duration = dayjs.duration(diff);
+            const minutes = Math.floor(duration.asMinutes());
+            const seconds = duration.seconds();
+            setTimeRemaining(`${minutes}m ${seconds}s`);
+            setSessionExpired(false);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+
+        return () => clearInterval(interval);
+    }, [activeSession?.endTime]);
+
     const handleChargingPointChange = (pointId) => {
         setReservationData(prev => ({ ...prev, selectedChargingPoint: pointId }));
         // Check connector compatibility
@@ -291,6 +360,223 @@ const PaymentPage = () => {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const validateSelectedChargingPoint = () => {
+        if (!reservationData.selectedChargingPoint) return false;
+
+        const selectedPoint = availableChargingPoints.find(
+            point => point.id === reservationData.selectedChargingPoint
+        );
+
+        if (!selectedPoint) return false;
+
+        if (selectedPoint.status === 'reserved') {
+            message.error('The selected charging point is currently reserved. Please select another charging point.');
+            return false;
+        }
+
+        if (selectedPoint.status === 'offline' || selectedPoint.status === 'maintenance') {
+            message.error('The selected charging point is offline for maintenance. Please select another charging point.');
+            return false;
+        }
+
+        return selectedPoint.status === 'available';
+    };
+
+    // Handle starting a charging session
+    const handleStartSession = async () => {
+        console.log('=== START SESSION CLICKED ===');
+        console.log('Created reservation:', createdReservation);
+        console.log('Selected charging point:', reservationData.selectedChargingPoint);
+        console.log('Account from Redux:', account);
+        
+        if (!createdReservation || !reservationData.selectedChargingPoint) {
+            message.error('No reservation found. Please create a reservation first.');
+            return;
+        }
+
+        const userId = account?.user?.userId;
+        if (!userId) {
+            console.error('User ID not found in account:', account);
+            message.error('User information not found. Please log in again.');
+            return;
+        }
+
+        setSessionLoading(true);
+        try {
+            const sessionData = {
+                userId: userId,
+                pointId: reservationData.selectedChargingPoint,
+                reservationId: createdReservation.reservationId,
+                vehicleId: vehicleData?.vehicleId || 0,
+                minutes: sessionDuration,
+                paymentMethod: "wallet"
+            };
+
+            console.log('=== SESSION DATA TO SEND ===');
+            console.log(JSON.stringify(sessionData, null, 2));
+
+            const session = await startChargingSession(sessionData);
+
+            console.log('=== SESSION STARTED SUCCESSFULLY ===');
+            console.log('Full session response:', JSON.stringify(session, null, 2));
+            
+            // Extract session data - handle different response structures
+            const sessionInfo = session?.session || session;
+            console.log('Extracted session info:', sessionInfo);
+            
+            setActiveSession(sessionInfo);
+            message.success('Charging session started successfully!');
+        } catch (error) {
+            console.error('=== START SESSION ERROR ===');
+            console.error('Error object:', error);
+            console.error('Response status:', error.response?.status);
+            console.error('Response data:', error.response?.data);
+            console.error('Error message:', error.message);
+
+            if (error.response?.status === 400) {
+                message.error(`Invalid session data: ${JSON.stringify(error.response?.data)}`);
+            } else if (error.response?.status === 401) {
+                message.error('Authentication required. Please log in again.');
+            } else if (error.response?.status === 404) {
+                message.error('Charging point or reservation not found.');
+            } else if (error.response?.status === 409) {
+                message.error('Charging point is already in use.');
+            } else {
+                message.error(`Failed to start session: ${error.response?.data?.message || error.message}`);
+            }
+        } finally {
+            setSessionLoading(false);
+        }
+    };
+
+    // Handle stopping a charging session
+    const handleStopSession = async () => {
+        if (!activeSession) {
+            message.error('No active session to stop.');
+            return;
+        }
+
+        // Calculate estimated cost
+        const selectedPoint = stationData?.chargingPoints?.find(
+            point => point.pointId === reservationData.selectedChargingPoint
+        );
+        
+        if (selectedPoint) {
+            const startTime = dayjs(activeSession.startTime);
+            const now = dayjs();
+            const actualMinutes = now.diff(startTime, 'minute', true);
+            const estimatedKwh = (selectedPoint.maxPower * (actualMinutes / 60)) * 0.8; // 80% efficiency
+            const cost = estimatedKwh * selectedPoint.pricePerKwh;
+            setSessionCost(cost);
+        }
+
+        setStoppedSession(activeSession);
+        setPaymentModalVisible(true);
+    };
+
+    // Handle payment completion
+    const handlePaymentComplete = async () => {
+        if (!stoppedSession) {
+            message.error('No session data found.');
+            return;
+        }
+
+        setPaymentLoading(true);
+        try {
+            // Process payment based on method
+            if (paymentMethod === 'wallet') {
+                if (!userWallet) {
+                    message.error('Wallet not found. Please set up your wallet first.');
+                    setPaymentLoading(false);
+                    return;
+                }
+
+                const walletId = userWallet.walletId || userWallet.id;
+                if (!walletId) {
+                    message.error('Invalid wallet ID.');
+                    setPaymentLoading(false);
+                    return;
+                }
+
+                console.log('Deducting from wallet:', walletId, 'amount:', sessionCost);
+
+                // Deduct from wallet
+                await deductFromWallet(walletId, sessionCost);
+                message.success('Payment deducted from wallet successfully!');
+            }
+
+            // Now stop the session
+            console.log('Stopping session after payment...');
+            const sessionData = {
+                sessionId: stoppedSession.sessionId,
+                pointId: reservationData.selectedChargingPoint
+            };
+
+            await stopChargingSession(sessionData);
+
+            message.success('Charging session completed successfully!');
+            
+            // Reset all states to initial
+            setActiveSession(null);
+            setPaymentModalVisible(false);
+            setStoppedSession(null);
+            setCurrentStep(0);
+            setCreatedReservation(null);
+            setReservationData({
+                vehicleModel: '',
+                licensePlate: '',
+                selectedChargingPoint: null
+            });
+            setEstimatedCost(0);
+
+            // Navigate back to map after delay
+            setTimeout(() => {
+                message.success('Redirecting to map...');
+                navigate('/map');
+            }, 2000);
+
+            message.success('Reservation created successfully!');
+        } catch (error) {
+            console.error('Payment/Stop error:', error);
+
+            const errorMsg = error.response?.data;
+            
+            if (error.response?.status === 404) {
+                if (typeof errorMsg === 'string' && errorMsg.includes('Wallet not found')) {
+                    message.error('Wallet not found. Please set up your wallet in your profile.');
+                } else {
+                    message.error('Resource not found. Please try again.');
+                }
+            } else if (error.response?.status === 500) {
+                if (typeof errorMsg === 'string' && errorMsg.includes('FOREIGN KEY constraint')) {
+                    message.warning('Payment processed but backend sync pending. Session will be marked as complete.');
+                    setActiveSession(null);
+                    setPaymentModalVisible(false);
+                    setCurrentStep(0);
+                    setTimeout(() => navigate('/map'), 1500);
+                } else {
+                    message.error('Server error occurred. Please contact support.');
+                }
+            } else if (error.response?.status === 400) {
+                if (typeof errorMsg === 'string' && errorMsg.includes('already stopped')) {
+                    message.warning('Session already completed. Payment processed.');
+                    setActiveSession(null);
+                    setPaymentModalVisible(false);
+                    setCurrentStep(0);
+                    setTimeout(() => navigate('/map'), 1500);
+                } else if (typeof errorMsg === 'string' && errorMsg.includes('Insufficient')) {
+                    message.error('Insufficient wallet balance. Please top up your wallet.');
+                } else {
+                    message.error(`Payment error: ${errorMsg || 'Bad request'}`);
+                }
+            } else {
+                message.error(`Failed to complete payment: ${error.message}`);
+            }
+        } finally {
+            setPaymentLoading(false);
         }
     };
 
@@ -608,6 +894,130 @@ const PaymentPage = () => {
                                     </div>
                                 </Card>
 
+                                {/* Session Control Section */}
+                                <Card
+                                    title={
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <ThunderboltOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+                                            {activeSession ? "Active Charging Session" : "Start Charging"}
+                                        </div>
+                                    }
+                                    style={{
+                                        marginTop: '24px',
+                                        textAlign: 'left',
+                                        maxWidth: '500px',
+                                        margin: '24px auto 0'
+                                    }}
+                                >
+                                    {!activeSession ? (
+                                        <div>
+                                            <Alert
+                                                message="Ready to Charge"
+                                                description="Your reservation is confirmed. You can now start your charging session."
+                                                type="info"
+                                                showIcon
+                                                style={{ marginBottom: '16px' }}
+                                            />
+
+                                            <Form layout="vertical">
+                                                <Form.Item
+                                                    label="Session Duration (minutes)"
+                                                    help="How long do you plan to charge?"
+                                                >
+                                                    <InputNumber
+                                                        min={5}
+                                                        max={480}
+                                                        value={sessionDuration}
+                                                        onChange={(value) => setSessionDuration(value)}
+                                                        style={{ width: '100%' }}
+                                                        size="large"
+                                                    />
+                                                </Form.Item>
+                                            </Form>
+
+                                            <Button
+                                                type="primary"
+                                                size="large"
+                                                icon={<PlayCircleOutlined />}
+                                                onClick={handleStartSession}
+                                                loading={sessionLoading}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '50px',
+                                                    fontSize: '16px',
+                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                                }}
+                                            >
+                                                Start Charging Session
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <Alert
+                                                message={sessionExpired ? "Session Ended" : "Charging In Progress"}
+                                                description={
+                                                    <div>
+                                                        <div>{sessionExpired ? 'Your charging session has ended.' : 'Your vehicle is currently charging.'}</div>
+                                                        <div style={{ marginTop: '8px' }}>
+                                                            <Text strong>Session ID: </Text>
+                                                            <Text code>{activeSession.sessionId}</Text>
+                                                        </div>
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <Text strong>Status: </Text>
+                                                            <Text code style={{ color: sessionExpired ? '#ff4d4f' : '#52c41a' }}>
+                                                                {activeSession.status || 'in_progress'}
+                                                            </Text>
+                                                        </div>
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <Text strong>Started: </Text>
+                                                            <Text>{dayjs(activeSession.startTime).format('HH:mm:ss')}</Text>
+                                                        </div>
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <Text strong>Ends at: </Text>
+                                                            <Text>{dayjs(activeSession.endTime).format('HH:mm:ss')}</Text>
+                                                        </div>
+                                                        {timeRemaining && (
+                                                            <div style={{ marginTop: '8px', padding: '8px', background: sessionExpired ? '#fff1f0' : '#f6ffed', borderRadius: '4px', border: `1px solid ${sessionExpired ? '#ffccc7' : '#b7eb8f'}` }}>
+                                                                <Text strong style={{ color: sessionExpired ? '#ff4d4f' : '#52c41a' }}>
+                                                                    {sessionExpired ? '⏰ ' : '⚡ '}
+                                                                    {timeRemaining}
+                                                                </Text>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                }
+                                                type={sessionExpired ? "warning" : "success"}
+                                                showIcon
+                                                icon={<ThunderboltOutlined />}
+                                                style={{ marginBottom: '16px' }}
+                                            />
+
+                                            <Button
+                                                danger
+                                                size="large"
+                                                icon={<StopOutlined />}
+                                                onClick={handleStopSession}
+                                                loading={sessionLoading}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '50px',
+                                                    fontSize: '16px'
+                                                }}
+                                            >
+                                                {sessionExpired ? 'Complete Session' : 'Stop Charging Session'}
+                                            </Button>
+
+                                            <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                    {sessionExpired 
+                                                        ? 'Click to finalize and process payment'
+                                                        : 'Payment will be processed when you stop the session'}
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+
                                 <Alert
                                     message="Important Reminders"
                                     description={
@@ -621,30 +1031,6 @@ const PaymentPage = () => {
                                     showIcon
                                     style={{ marginTop: '24px' }}
                                 />
-
-                                {/* Manual navigation buttons */}
-                                <div style={{ marginTop: '32px', textAlign: 'center' }}>
-                                    <Space>
-                                        <Button
-                                            type="default"
-                                            onClick={() => navigate('/map')}
-                                        >
-                                            Back to Map
-                                        </Button>
-                                        <Button
-                                            type="primary"
-                                            onClick={() => navigate('/map', {
-                                                state: {
-                                                    reservationSuccess: true,
-                                                    reservedStation: stationData,
-                                                    reservation: createdReservation
-                                                }
-                                            })}
-                                        >
-                                            View on Map
-                                        </Button>
-                                    </Space>
-                                </div>
                             </div>
                         )}
                     </Card>
@@ -751,6 +1137,133 @@ const PaymentPage = () => {
                     </Card>
                 </Col>
             </Row>
+
+            {/* Payment Modal */}
+            <Modal
+                title={
+                    <div style={{ textAlign: 'center' }}>
+                        <DollarOutlined style={{ fontSize: '24px', color: '#1890ff', marginRight: '8px' }} />
+                        <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Payment Required</span>
+                    </div>
+                }
+                open={paymentModalVisible}
+                onCancel={() => {
+                    setPaymentModalVisible(false);
+                    setStoppedSession(null);
+                }}
+                footer={null}
+                width={600}
+            >
+                <div style={{ padding: '20px 0' }}>
+                    {/* Payment Amount */}
+                    <Card style={{ marginBottom: '20px', backgroundColor: '#f0f5ff', border: '2px solid #1890ff' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <Text type="secondary" style={{ fontSize: '16px' }}>Amount to Pay</Text>
+                            <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#1890ff', margin: '10px 0' }}>
+                                ${sessionCost.toFixed(2)}
+                            </div>
+                            <Text type="secondary" style={{ fontSize: '14px' }}>
+                                ≈ {Math.round(sessionCost * 24000).toLocaleString()} VND
+                            </Text>
+                        </div>
+                    </Card>
+
+                    {/* Session Summary */}
+                    <Card size="small" style={{ marginBottom: '20px', background: '#fafafa' }}>
+                        <Row gutter={[16, 8]}>
+                            <Col span={12}>
+                                <Text type="secondary">Session ID:</Text>
+                            </Col>
+                            <Col span={12} style={{ textAlign: 'right' }}>
+                                <Text code>{stoppedSession?.sessionId}</Text>
+                            </Col>
+                            <Col span={12}>
+                                <Text type="secondary">Duration:</Text>
+                            </Col>
+                            <Col span={12} style={{ textAlign: 'right' }}>
+                                <Text strong>
+                                    {stoppedSession && dayjs(dayjs()).diff(dayjs(stoppedSession.startTime), 'minute')} minutes
+                                </Text>
+                            </Col>
+                            <Col span={12}>
+                                <Text type="secondary">Started:</Text>
+                            </Col>
+                            <Col span={12} style={{ textAlign: 'right' }}>
+                                <Text>{stoppedSession && dayjs(stoppedSession.startTime).format('HH:mm:ss')}</Text>
+                            </Col>
+                        </Row>
+                    </Card>
+
+                    <Divider>Select Payment Method</Divider>
+
+                    {/* Payment Method Selection */}
+                    <Select
+                        value={paymentMethod}
+                        onChange={(value) => setPaymentMethod(value)}
+                        style={{ width: '100%', marginBottom: '20px' }}
+                        size="large"
+                    >
+                        <Select.Option value="wallet">
+                            <WalletOutlined style={{ marginRight: '8px' }} />
+                            Digital Wallet
+                            {userWallet && (
+                                <span style={{ float: 'right', fontSize: '12px', color: '#8c8c8c' }}>
+                                    Balance: ${(userWallet.balance || 0).toFixed(2)}
+                                </span>
+                            )}
+                        </Select.Option>
+                    </Select>
+
+                    {/* Wallet Balance Info */}
+                    {paymentMethod === 'wallet' && (
+                        <Alert
+                            message={
+                                <div>
+                                    {userWallet && userWallet.balance >= sessionCost ? (
+                                        <div>
+                                            <CheckCircleOutlined style={{ color: '#52c41a', marginRight: '8px' }} />
+                                            <Text>Sufficient balance. ${sessionCost.toFixed(2)} will be deducted from your wallet.</Text>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <Text type="danger">
+                                                ⚠️ Insufficient wallet balance. Please top up your wallet first.
+                                            </Text>
+                                        </div>
+                                    )}
+                                </div>
+                            }
+                            type={userWallet && userWallet.balance >= sessionCost ? "success" : "error"}
+                            showIcon={false}
+                            style={{ marginBottom: '20px' }}
+                        />
+                    )}
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                setPaymentModalVisible(false);
+                                setStoppedSession(null);
+                            }}
+                            disabled={paymentLoading}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="primary"
+                            size="large"
+                            icon={<CheckCircleOutlined />}
+                            onClick={handlePaymentComplete}
+                            loading={paymentLoading}
+                            disabled={!userWallet || (userWallet.balance < sessionCost)}
+                        >
+                            Complete Payment
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
