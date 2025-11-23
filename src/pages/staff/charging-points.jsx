@@ -628,9 +628,37 @@ const ChargingPointsPage = () => {
 
       console.log("Step 6: Prepared stop session data:", JSON.stringify(stopData, null, 2));
 
-      // Calculate payment amount (mock calculation based on energy consumed)
-      // In production, this should come from the backend
-      const calculatedAmount = Math.random() * 50 + 10; // Mock: $10-$60
+      // Calculate payment amount based on actual session duration and charging point specs
+      // Get the charging point info to access pricePerKwh and maxPower
+      const currentPoint = points.find(p => p.pointId === pointId);
+      const sessionInfo = activeSessions[pointId] || manuallyExpiredSessions[pointId];
+      
+      let calculatedAmount = 0;
+      
+      if (currentPoint && sessionInfo) {
+        // Calculate actual charging duration in hours
+        const startTime = new Date(sessionInfo.startTime);
+        const endTime = new Date();
+        const actualHours = (endTime - startTime) / (1000 * 60 * 60);
+        
+        // Calculate energy consumed: actualHours × maxPower × 0.8 (charging efficiency)
+        const energyConsumed = actualHours * (currentPoint.maxPower || 25) * 0.8;
+        
+        // Calculate cost: energyConsumed × pricePerKwh
+        calculatedAmount = energyConsumed * (currentPoint.pricePerKwh || 0.5);
+        
+        console.log("Payment calculation:", {
+          actualHours: actualHours.toFixed(2),
+          maxPower: currentPoint.maxPower,
+          energyConsumed: energyConsumed.toFixed(2),
+          pricePerKwh: currentPoint.pricePerKwh,
+          totalCost: calculatedAmount.toFixed(2)
+        });
+      } else {
+        // Fallback if we can't find the data
+        calculatedAmount = 15; // Default fallback amount
+        console.warn("Could not calculate payment amount, using fallback:", calculatedAmount);
+      }
 
       // Show payment modal instead of immediately stopping
       setSessionData(stopData);
