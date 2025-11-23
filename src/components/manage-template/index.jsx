@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import api from "../../config/axios";
 import dayjs from "dayjs";
 
-const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category", idField = "id" }) => {
+const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category", idField = "id", customUpdateHandler = null }) => {
   // định nghĩa cái dữ liệu
   // => api
   // 1. tên biến
@@ -31,7 +31,14 @@ const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category
 
     if (id) {
       // => update
-      response = await api.put(`${apiURL}/${id}`, values);
+      if (customUpdateHandler) {
+        // Use custom update handler if provided (e.g., for special role update endpoint)
+        response = await customUpdateHandler(id, values);
+      } else {
+        // Extract base URL without query parameters for proper PUT endpoint
+        const baseURL = apiURL.split('?')[0];
+        response = await api.put(`${baseURL}/${id}`, values);
+      }
     } else {
       // => create new
       response = await api.post(apiURL, values);
@@ -89,7 +96,9 @@ const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category
                     title="Delete category"
                     onConfirm={async () => {
                       // => cho phép delete
-                      await api.delete(`${apiURL}/${id}`);
+                      // Extract base URL without query parameters for proper DELETE endpoint
+                      const baseURL = apiURL.split('?')[0];
+                      await api.delete(`${baseURL}/${id}`);
 
                       fetchCategories(); // cập nhật lại danh sách
                       toast.success("Successfully remove category!");

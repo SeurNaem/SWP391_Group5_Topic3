@@ -3,6 +3,7 @@ import { Form, Input, Select, Button, Card, Space, Tag } from "antd";
 import { SearchOutlined, ReloadOutlined } from "@ant-design/icons";
 import ManageTemplate from "../../components/manage-template";
 import dayjs from "dayjs";
+import api from "../../config/axios";
 
 const ManageUser = () => {
     const [searchFilters, setSearchFilters] = useState({
@@ -210,6 +211,15 @@ const ManageUser = () => {
         return url;
     };
 
+    // Custom update handler for user role changes using the special admin endpoint
+    const handleUserUpdate = async (userId, values) => {
+        // Use the special role update endpoint: PUT /api/admin/users/{id}/role
+        const response = await api.put(`admin/users/${userId}/role`, {
+            role: values.role
+        });
+        return response;
+    };
+
     return (
         <div>
             {/* Search Filters */}
@@ -276,6 +286,7 @@ const ManageUser = () => {
                 formItems={formItems}
                 buttonText="Add User"
                 idField="userId"
+                customUpdateHandler={handleUserUpdate}
             />
         </div>
     );
