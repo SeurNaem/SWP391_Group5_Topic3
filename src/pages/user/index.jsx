@@ -51,6 +51,7 @@ const ManageUser = () => {
                     case "Staff":
                         color = "blue";
                         break;
+                    case "User":
                     case "Driver":
                         color = "green";
                         break;
@@ -155,6 +156,7 @@ const ManageUser = () => {
                 ]}
             >
                 <Select placeholder="Select user role">
+                    <Select.Option value="User">User</Select.Option>
                     <Select.Option value="Driver">Driver</Select.Option>
                     <Select.Option value="Staff">Staff</Select.Option>
                     <Select.Option value="Admin">Admin</Select.Option>
@@ -224,6 +226,7 @@ const ManageUser = () => {
                             onChange={(value) => setSearchFilters(prev => ({ ...prev, role: value || "" }))}
                             allowClear
                         >
+                            <Select.Option value="User">User</Select.Option>
                             <Select.Option value="Driver">Driver</Select.Option>
                             <Select.Option value="Staff">Staff</Select.Option>
                             <Select.Option value="Admin">Admin</Select.Option>
