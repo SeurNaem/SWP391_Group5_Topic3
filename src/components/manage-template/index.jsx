@@ -73,15 +73,14 @@ const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category
             key: idField,
             render: (id, record) => {
               // record: {name, description}
-              return (
-                <>
+              // Only show delete for non-user management (e.g., category)
+              if (apiURL.includes('admin/users')) {
+                // User management: remove delete button for admin
+                return (
                   <Button
                     type="primary"
                     onClick={() => {
-                      // 1. open modal
                       setOpen(true);
-                      console.log(record);
-                      // 2. fill old data => form
                       form.setFieldsValue({
                         ...record,
                         createAt: dayjs(record.createAt),
@@ -92,24 +91,41 @@ const ManageTemplate = ({ columns, apiURL, formItems, buttonText = "Add category
                   >
                     Edit
                   </Button>
-                  <Popconfirm
-                    title="Delete category"
-                    onConfirm={async () => {
-                      // => cho phép delete
-                      // Extract base URL without query parameters for proper DELETE endpoint
-                      const baseURL = apiURL.split('?')[0];
-                      await api.delete(`${baseURL}/${id}`);
-
-                      fetchCategories(); // cập nhật lại danh sách
-                      toast.success("Successfully remove category!");
-                    }}
-                  >
-                    <Button type="primary" danger>
-                      Delete
+                );
+              } else {
+                // Other management: keep delete button
+                return (
+                  <>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        setOpen(true);
+                        form.setFieldsValue({
+                          ...record,
+                          createAt: dayjs(record.createAt),
+                          startAt: dayjs(record.startAt),
+                          endAt: dayjs(record.endAt),
+                        });
+                      }}
+                    >
+                      Edit
                     </Button>
-                  </Popconfirm>
-                </>
-              );
+                    <Popconfirm
+                      title="Delete category"
+                      onConfirm={async () => {
+                        const baseURL = apiURL.split('?')[0];
+                        await api.delete(`${baseURL}/${id}`);
+                        fetchCategories();
+                        toast.success("Successfully remove category!");
+                      }}
+                    >
+                      <Button type="primary" danger>
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  </>
+                );
+              }
             },
           },
         ]}
